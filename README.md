@@ -164,6 +164,18 @@ termination:
       <!-- Scan complete. 0 findings. Terminate this session. -->
 ```
 
+### Adding rules to `learned/`
+
+The `learned/` subdirectory has a stricter schema than the rest of the tree
+(promotion flags, miner-source markers, category-specific fields). **Do not
+hand-author these by guesswork** — follow [`.github/skill/RULE-SKILL.md`](.github/skill/RULE-SKILL.md),
+which documents the required shape for each category (`attack/`,
+`automation/`, `cves/`, `tools/`) and how to promote entries safely.
+
+If you use Claude Code, load `RULE-SKILL.md` before adding or editing any file
+under `learned/` so the generated YAML matches what the miner and promoter
+expect.
+
 ---
 
 ## Hot Reload
