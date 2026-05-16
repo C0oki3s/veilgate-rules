@@ -1,0 +1,31 @@
+# /cgi-bin/ directory probe — Nikto CGI enumeration for Shellshock / RCE.
+# Tool: nikto | Feature: path_ngram
+candidates:
+  - id: VG-PATH-010
+    feature: path_ngram
+    bucket: cgi-bin
+    posterior: 0.9977272727272727
+    support: 438
+    active: true
+    info:
+      name: CGI-BIN directory probe
+      author: community
+      severity: high
+      description: |
+        Probe for the `/cgi-bin/` directory. Observed 438 times. Nikto, Nuclei,
+        and manual tools enumerate CGI scripts to find Shellshock
+        (CVE-2014-6271), remote code execution via legacy Perl/Python CGI, and
+        default script exposures.
+      impact: |
+        CGI vulnerability enumeration. High risk on servers running legacy CGI
+        handlers. Even on modern servers this pattern indicates automated
+        scanning.
+      tags: [path_ngram, scanner, enumerate, cgi, shellshock, nikto, nuclei]
+      reference:
+        - https://nvd.nist.gov/vuln/detail/CVE-2014-6271
+        - https://github.com/sullo/nikto
+      metadata:
+        verified: "true"
+        source: community
+        false_positive_rate: low
+        tool: nikto

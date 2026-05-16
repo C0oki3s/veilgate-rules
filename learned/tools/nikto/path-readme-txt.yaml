@@ -1,0 +1,29 @@
+# readme.txt version disclosure probe — CMS version fingerprinting.
+# Tool: nikto | Feature: path_ngram
+candidates:
+  - id: VG-PATH-012
+    feature: path_ngram
+    bucket: readme.txt
+    posterior: 0.9987577639751553
+    support: 803
+    active: true
+    info:
+      name: readme.txt version disclosure probe
+      author: community
+      severity: medium
+      description: |
+        WordPress, Drupal, Joomla, and many PHP applications ship a `readme.txt`
+        or `README.txt` that discloses the exact software version. Scanners
+        fetch this file to fingerprint the CMS before selecting exploit
+        templates. Observed 803 times in the April 2026 dataset.
+      impact: |
+        Version fingerprinting. Enables targeted CVE selection by the scanner.
+        Leads directly to plugin/theme exploit attempts when version is known.
+      tags: [path_ngram, scanner, enumerate, fingerprint, wordpress, drupal, nikto]
+      reference:
+        - https://github.com/sullo/nikto
+      metadata:
+        verified: "true"
+        source: community
+        false_positive_rate: low
+        tool: nikto

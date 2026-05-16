@@ -1,0 +1,40 @@
+# Extended identity pools: more realistic company names, admin accounts,
+# and plausible weak passwords for the fake admin dashboard persona.
+companies:
+  - Veridian Dynamics
+  - Massive Dynamic
+  - Weyland-Yutani Corp
+  - Axiom Industries
+  - Dunder Mifflin Tech
+  - Bluth Company
+  - Oscorp Industries
+  - Tyrell Corporation
+  - Rekall Systems
+  - Cyberdyne Systems
+
+admin_users:
+  - webmaster
+  - dbadmin
+  - sa
+  - postgres
+  - mysql
+  - devops
+  - deploy
+  - ops
+  - monitoring
+  - backup
+
+admin_passes:
+  - Spring2024!
+  - Summer2024@
+  - Admin@123
+  - Passw0rd!
+  - company123
+  - qwerty2024
+
+email_domains:
+  - veridian
+  - massive-dynamic
+  - tyrell
+  - rekall
+  - cyberdyne

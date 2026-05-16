@@ -1,0 +1,35 @@
+# Residential proxy and VPN provider CIDRs.
+# Traffic claiming to be a browser but originating here is ~never a real user.
+#
+# Source lists:
+#   https://github.com/X4BNet/lists_vpn (NordVPN, ExpressVPN, Mullvad, etc.)
+#   https://github.com/X4BNet/lists_botnet
+#   BrightData / Oxylabs published egress ranges (check provider dashboards)
+
+categories:
+  - name: anonymizer
+    cidrs:
+      # Mullvad VPN exit nodes (sample — extend from https://mullvad.net/en/servers)
+      - 185.213.154.0/24
+      - 185.234.216.0/24
+      - 194.165.16.0/22
+      # NordVPN (sample — extend from provider's IP list)
+      - 45.83.220.0/22
+      - 37.120.159.0/24
+      - 89.187.162.0/24
+      # ExpressVPN sample egress
+      - 108.59.0.0/22
+      # Proton VPN
+      - 185.159.156.0/22
+      - 185.159.157.0/24
+
+  - name: residential_proxy
+    points: 28
+    cidrs:
+      # BrightData (Luminati) declared egress sample
+      - 154.16.128.0/17
+      - 154.17.0.0/16
+      # Oxylabs declared egress sample
+      - 37.57.0.0/18
+      # SOAX
+      - 45.83.176.0/21

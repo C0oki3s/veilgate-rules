@@ -1,0 +1,29 @@
+# /etc/ directory segment probe — OS config directory LFI reconnaissance.
+# Attack: local-file-inclusion | Feature: path_ngram
+candidates:
+  - id: VG-PATH-007
+    feature: path_ngram
+    bucket: etc
+    posterior: 0.9965156794425087
+    support: 285
+    active: true
+    info:
+      name: /etc directory LFI probe
+      author: community
+      severity: high
+      description: |
+        The path segment `etc` appearing as a standalone n-gram, indicating
+        probes for the `/etc/` directory tree. Observed 285 times; almost
+        always precedes more specific targets: `etc/passwd`, `etc/shadow`,
+        `etc/hosts`, `etc/nginx/nginx.conf`, `etc/apache2/apache2.conf`.
+      impact: |
+        Reconnaissance of OS-level configuration directories via LFI or path
+        traversal. Confirms the attacker is in an enumeration phase looking
+        for readable system files.
+      tags: [path_ngram, lfi, payload, attack, recon, enumerate]
+      reference:
+        - https://owasp.org/www-community/attacks/Path_Traversal
+      metadata:
+        verified: "true"
+        source: community
+        false_positive_rate: low

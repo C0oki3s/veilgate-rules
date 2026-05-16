@@ -1,0 +1,53 @@
+# CMS honeypot paths — high-confidence scanner indicators.
+# A real user accessing any of these paths almost never happens organically.
+honeypot_paths:
+  # WordPress
+  - /wp-admin/install.php
+  - /wp-admin/setup-config.php
+  - /wp-login.php
+  - /wp-cron.php
+  - /wp-includes/wlwmanifest.xml
+  - /xmlrpc.php
+  # Drupal
+  - /user/login
+  - /admin/config
+  - /sites/default/files/
+  - /misc/drupal.js
+  # Joomla
+  - /administrator/index.php
+  - /components/com_users/
+  # Magento
+  - /admin/
+  - /downloader/
+  - /index.php/admin/
+  # phpMyAdmin
+  - /phpmyadmin/
+  - /phpMyAdmin/
+  - /pma/
+  - /myadmin/
+  # Strapi / Headless CMS
+  - /admin/auth/login
+  - /content-manager/
+  # Grafana
+  - /grafana/login
+  - /grafana/admin/
+  # Jenkins
+  - /jenkins/
+  - /job/
+  - /script
+
+fake_git_paths:
+  - "/.git/COMMIT_EDITMSG"
+  - "/.git/FETCH_HEAD"
+  - "/.git/packed-refs"
+  - "/.git/refs/heads/main"
+  - "/.git/refs/heads/master"
+  - "/.git/logs/HEAD"
+
+fake_env_paths:
+  - "/.env.local"
+  - "/.env.development"
+  - "/.env.staging"
+  - "/.env.example"
+  - "/config/.env"
+  - "/app/.env"

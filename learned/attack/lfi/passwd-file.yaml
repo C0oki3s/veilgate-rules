@@ -1,0 +1,29 @@
+# passwd filename probe — Unix password file disclosure via LFI.
+# Attack: local-file-inclusion | Feature: path_ngram
+candidates:
+  - id: VG-PATH-008
+    feature: path_ngram
+    bucket: passwd
+    posterior: 0.9964028776978417
+    support: 276
+    active: true
+    info:
+      name: passwd filename LFI probe
+      author: community
+      severity: high
+      description: |
+        The filename `passwd` in a URL path n-gram — a direct indicator of LFI
+        or file disclosure attempts targeting Unix password files. Observed 276
+        times. Appears both as `passwd` alone (targeting `/etc/passwd` via
+        traversal) and in compound paths (`etc/passwd`). Every major LFI
+        scanner includes this filename in its wordlist.
+      impact: |
+        Attacker is attempting Unix credential file disclosure. Even without
+        hashes, the username list enables targeted brute-force campaigns.
+      tags: [path_ngram, lfi, payload, attack]
+      reference:
+        - https://owasp.org/www-community/attacks/Path_Traversal
+      metadata:
+        verified: "true"
+        source: community
+        false_positive_rate: low

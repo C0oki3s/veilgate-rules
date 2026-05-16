@@ -1,0 +1,32 @@
+# Core vulnerability detection triggers — honeypot paths, SQL injection
+# patterns, and fake lure paths. Add community honeypots in honeypots/ subdir.
+
+honeypot_paths:
+  - /admin-panel-v2
+  - /api/internal/debug
+  - /.git/config
+  - /.env.backup
+  - /wp-admin-old
+  - /phpmyadmin-backup
+
+sql_injection_patterns:
+  - "'"
+  - "\""
+  - "--"
+  - "union"
+  - "select"
+  - "or 1=1"
+  - "or+1=1"
+  - "or%201=1"
+  - "'or'1'='1"
+  - "/*"
+  - "*/"
+
+fake_git_paths:
+  - "/.git/config"
+  - "/.git/HEAD"
+
+fake_env_paths:
+  - "/.env"
+  - "/.env.backup"
+  - "/.env.prod"

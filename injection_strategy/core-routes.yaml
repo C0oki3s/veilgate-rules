@@ -1,0 +1,27 @@
+# Injection strategy — route table and injector config.
+# Route table: first match wins. Add community routes in routes/ subdirectory.
+# config.yaml sorts first so `any` catch-all in routes stays last.
+
+routes:
+  - match: sqli
+    template: sql_error
+  - match: exact
+    values: ["/", "/index.html"]
+    template: login_page
+  - match: exact
+    values: ["/login", "/signin", "/auth"]
+    template: login_page
+  - match: prefix
+    values: ["/admin", "/dashboard"]
+    template: admin_dashboard
+  - match: contains
+    values: ["/users"]
+    template: users_list
+  - match: list
+    values: ["fake_git_paths"]
+    template: git_config
+  - match: list
+    values: ["fake_env_paths"]
+    template: env_backup
+  - match: any
+    template: generic_not_found

@@ -1,0 +1,39 @@
+# Payload injection markers beyond the base set:
+# SSTI, XXE, SSRF, prototype pollution, and template-injection vectors.
+injection_markers:
+  substrings:
+    # --- Server-Side Template Injection (SSTI) ---
+    - "{{7*7}}"
+    - "${7*7}"
+    - "<%=7*7%>"
+    - "{#7*7}"
+    - "#{7*7}"
+    - "@(7*7)"
+    - "{{config}}"
+    - "{{self}}"
+    # --- XXE / XML injection ---
+    - "<!DOCTYPE"
+    - "<!ENTITY"
+    - "SYSTEM \"file://"
+    - "SYSTEM \"http://"
+    # --- Prototype pollution ---
+    - "__proto__"
+    - "constructor[prototype]"
+    - "constructor.prototype"
+    # --- SSRF via URL parameters ---
+    - "file:///etc/"
+    - "dict://"
+    - "gopher://"
+    - "tftp://"
+    # --- Path traversal encodings ---
+    - "..%2f"
+    - "..%5c"
+    - "%2e%2e%2f"
+    - "..../"
+    - "..;/"
+    # --- XSS probes ---
+    - "<img src=x"
+    - "javascript:"
+    - "onerror="
+    - "onload="
+    - "svg/onload"

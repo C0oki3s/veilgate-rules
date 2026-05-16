@@ -1,0 +1,28 @@
+# Nuclei default "nuclei/x.y.z" User-Agent prefix.
+# Tool: nuclei | Feature: ua_token
+candidates:
+  - id: VG-UA-005
+    feature: ua_token
+    bucket: nuclei/
+    active: true
+    info:
+      name: Nuclei vulnerability scanner User-Agent prefix
+      author: community
+      severity: critical
+      description: |
+        Default User-Agent prefix emitted by the Nuclei scanner (`nuclei/3.x.x`).
+        Not present in the April 2026 miner dataset because the training traffic
+        did not include full Nuclei sessions, but this string is definitively a
+        tool fingerprint — no browser ever sends a UA beginning with "nuclei/".
+      impact: |
+        Active template-based vulnerability scanning. Nuclei runs hundreds of
+        CVE and misconfiguration checks per session. Tarpitting this client
+        immediately is recommended.
+      tags: [ua_token, scanner, nuclei, recon, exploit, projectdiscovery]
+      reference:
+        - https://github.com/projectdiscovery/nuclei
+      metadata:
+        verified: "false"
+        source: community
+        false_positive_rate: low
+        tool: nuclei

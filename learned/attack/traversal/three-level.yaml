@@ -1,0 +1,29 @@
+# Three-level ../../../ path traversal — OS-level file targeting.
+# Attack: path-traversal | Feature: path_ngram
+candidates:
+  - id: VG-PATH-003
+    feature: path_ngram
+    bucket: ../../..
+    posterior: 0.9992125984251968
+    support: 1268
+    active: true
+    info:
+      name: Three-level path traversal sequence
+      author: community
+      severity: high
+      description: |
+        Three-level directory traversal n-gram (`../../..`). Observed 1,268
+        times. Commonly targets `/etc/passwd` which sits three levels above a
+        typical web root (`/var/www/html/../../..` → `/`). This depth is also
+        used by tools like dotdotpwn that iterate depths systematically.
+      impact: |
+        Traversal deep enough to reach OS-level configuration files, private
+        keys in `/root/`, and application secrets outside the project tree.
+      tags: [path_ngram, traversal, payload, attack, lfi, dotdotpwn]
+      reference:
+        - https://owasp.org/www-community/attacks/Path_Traversal
+        - https://github.com/wireghoul/dotdotpwn
+      metadata:
+        verified: "true"
+        source: community
+        false_positive_rate: low

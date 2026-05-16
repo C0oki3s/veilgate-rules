@@ -1,0 +1,29 @@
+# IP reputation — scalar configuration (fleet/UA rotation knobs, private CIDRs).
+# Category CIDR lists live in cloud/, vpn/, tor/ subdirectory files.
+# config.yaml sorts first so scalars are set before category files are walked.
+
+fleet_rotation:
+  enabled: true
+  window_seconds: 600
+  max_fingerprints: 20000
+  tiers:
+    - distinct_ips: 25
+      points: 40
+    - distinct_ips: 8
+      points: 25
+    - distinct_ips: 3
+      points: 12
+
+ua_rotation:
+  enabled: true
+  distinct_uas_for_fire: 4
+  points: 25
+
+private_cidrs:
+  - 10.0.0.0/8
+  - 172.16.0.0/12
+  - 192.168.0.0/16
+  - 169.254.0.0/16
+  - 100.64.0.0/10
+  - 127.0.0.0/8
+  - "::1/128"

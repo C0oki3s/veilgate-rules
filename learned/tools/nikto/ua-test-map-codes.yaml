@@ -1,0 +1,29 @@
+# Nikto "(Test:map_codes)" response-code mapping phase UA variant.
+# Tool: nikto | Feature: ua_token
+candidates:
+  - id: VG-UA-003
+    feature: ua_token
+    bucket: test:map_codes
+    posterior: 0.9951923076923077
+    support: 206
+    active: true
+    info:
+      name: Nikto test/map_codes mode User-Agent
+      author: community
+      severity: medium
+      description: |
+        Nikto UA variant that includes `(Test:map_codes)` — emitted when
+        running the HTTP response code mapping phase. Observed 206 times
+        in the April 2026 dataset. Never emitted by any browser or legitimate
+        client library.
+      impact: |
+        Nikto is mapping HTTP response codes as a reconnaissance step before
+        targeted vulnerability tests begin.
+      tags: [ua_token, scanner, nikto, recon, fingerprint]
+      reference:
+        - https://github.com/sullo/nikto
+      metadata:
+        verified: "true"
+        source: community
+        false_positive_rate: low
+        tool: nikto

@@ -1,0 +1,62 @@
+# JA4 and JA3 fingerprints for common security tools and HTTP client libraries.
+# Confidence 90+ = highly tool-specific; 70-89 = probable tool; <70 = heuristic.
+#
+# Sources: TLS fingerprint databases, tool source code, community captures.
+# Regenerate with: go run ./cmd/tlsfp-capture <tool>
+
+ja4_exact:
+  # python-requests 2.28+ / urllib3 2.x (OpenSSL 3.x, Linux)
+  - hash: "t13d1715h2_5b57614c22b0_3d5424432f57"
+    label: python-httpx
+    category: agent
+    confidence: 94
+
+  # curl 8.x / libcurl (OpenSSL 3.x, Linux)
+  - hash: "t13d1517h2_8daaf6152771_b1ff8ab2d16f"
+    label: curl
+    category: agent
+    confidence: 92
+
+  # Go net/http default TLS (Go 1.21+)
+  - hash: "t13d1516h2_8daaf6152771_02713d6af862"
+    label: go-net-http
+    category: agent
+    confidence: 88
+
+  # Nuclei v3 (Go-based, Go 1.22+)
+  - hash: "t13d1516h2_8daaf6152771_975c02bfcf5d"
+    label: nuclei
+    category: scanner
+    confidence: 91
+
+  # Nmap / ncrack
+  - hash: "t10d010000_000000000000_000000000000"
+    label: nmap
+    category: scanner
+    confidence: 85
+
+ja4_prefix:
+  # python-requests family (short cipher list, no GREASE, TLS 1.2 max seen)
+  - prefix: "t13d1715"
+    label: python-requests-family
+    category: agent
+    confidence: 72
+
+  # Java default TLS (JDK 11/17/21)
+  - prefix: "t13d2115"
+    label: java-jdk
+    category: agent
+    confidence: 68
+
+  # Golang net/http family (various Go versions share this prefix)
+  - prefix: "t13d1516"
+    label: go-http-family
+    category: agent
+    confidence: 65
+
+ja3_exact:
+  # Python ssl (OpenSSL 1.1.x) — python-requests, scrapy, etc.
+  - hash: "769,47-53-5-10-49161-49162-49171-49172-50-56-19-4,0-10-11,23-24,0"
+    label: python-ssl-openssl1
+    category: agent
+    confidence: 80

@@ -1,0 +1,29 @@
+# Nikto "(Evasions:None)" substring in User-Agent.
+# Tool: nikto | Feature: ua_token
+candidates:
+  - id: VG-UA-002
+    feature: ua_token
+    bucket: evasions:none
+    posterior: 0.9998403575989783
+    support: 6262
+    active: true
+    info:
+      name: Nikto scanner evasion mode token
+      author: community
+      severity: high
+      description: |
+        Substring of the Nikto User-Agent string that encodes the active
+        evasion mode (`Evasions:None`). Always co-occurs with the `nikto`
+        token. Captured from the same 6,262-observation batch as VG-UA-001.
+        No legitimate browser UA contains the string "evasions:none".
+      impact: |
+        Confirms Nikto scanning without any evasion options enabled — the
+        operator made no attempt to disguise the scan.
+      tags: [ua_token, scanner, nikto, recon]
+      reference:
+        - https://github.com/sullo/nikto
+      metadata:
+        verified: "true"
+        source: community
+        false_positive_rate: low
+        tool: nikto

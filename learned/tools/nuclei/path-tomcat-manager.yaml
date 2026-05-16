@@ -1,0 +1,32 @@
+# Apache Tomcat /manager/html default-credential login + WAR upload RCE.
+# Tool: nuclei | Feature: path_ngram
+candidates:
+  - id: VG-PATH-011
+    feature: path_ngram
+    bucket: manager/html
+    posterior: 0.9987819732034104
+    support: 819
+    active: true
+    info:
+      name: Apache Tomcat Manager console path
+      author: community
+      severity: critical
+      description: |
+        The path `/manager/html` is the Apache Tomcat Manager web console.
+        Observed 819 times in the April 2026 dataset. Nuclei, Metasploit, and
+        manual testers enumerate this path to attempt default-credential login
+        (tomcat:tomcat, admin:admin) and to upload malicious WAR files for
+        remote code execution.
+      impact: |
+        Remote code execution if Tomcat Manager is accessible and default or
+        weak credentials are in use. WAR file upload grants full OS-level
+        code execution under the Tomcat process account.
+      tags: [path_ngram, scanner, enumerate, rce, tomcat, exploit, bruteforce, nuclei]
+      reference:
+        - https://github.com/projectdiscovery/nuclei-templates/tree/main/http/default-logins/tomcat
+        - https://www.rapid7.com/db/modules/exploit/multi/http/tomcat_mgr_upload/
+      metadata:
+        verified: "true"
+        source: community
+        false_positive_rate: low
+        tool: nuclei

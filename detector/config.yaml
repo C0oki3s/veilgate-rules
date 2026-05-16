@@ -1,0 +1,48 @@
+# Detector scalar configuration — scoring knobs, tiers, and timing.
+# This file sets all numeric thresholds. List fields live in sibling files.
+# Files are loaded in lexicographic order; config.yaml sorts before list files.
+
+empty_user_agent:
+  points: 20
+
+suspicious_user_agents:
+  points: 35
+
+browser_headers:
+  tiers:
+    - missing: 3
+      points: 15
+    - missing: 2
+      points: 8
+
+toolchain:
+  points:
+    full: 30
+    partial: 15
+
+timing:
+  min_events: 6
+  min_mean_seconds: 1.5
+  max_mean_seconds: 10.0
+  strict_cv_max: 0.35
+  strict_points: 25
+  loose_cv_max: 0.55
+  loose_points: 12
+
+path_bruteforce:
+  tiers:
+    - distinct_paths: 200
+      points: 40
+    - distinct_paths: 50
+      points: 25
+    - distinct_paths: 15
+      points: 10
+
+wordlist_paths:
+  points: 25
+
+injection_markers:
+  points: 45
+
+oob_interaction:
+  points: 50

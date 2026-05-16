@@ -1,0 +1,108 @@
+# Toolchain path substrings — recon → probe → exploit chain detection.
+# A client that hits paths from multiple stages in its event window scores
+# the `full` or `partial` points set in config.yaml.
+
+toolchain:
+  recon_paths:
+    - /robots.txt
+    - /sitemap.xml
+    - /.well-known/
+  probe_paths:
+    - /admin
+    - /login
+    - /api/
+    - /.git
+    - /.env
+    - /wp-
+  exploit_markers:
+    - "'"
+    - "\""
+    - "--"
+    - "<script"
+    - "../"
+    - union
+    - select
+    - or+1=1
+    - or%201=1
+    - "|id"
+    - "&&id"
+    - "`id`"
+
+# Wordlist path substrings from SecLists, nikto db, dirsearch defaults.
+# One hit per request regardless of how many substrings match.
+wordlist_paths:
+  substrings:
+    # --- Nikto/Metasploitable legacy app paths ---
+    - /forum1.asp
+    - /forum_professionnel.asp
+    - /rubrique.asp
+    - /modules.php
+    - /postnuke/
+    - /mambo/
+    - /phpMyAdmin/
+    - /phpmyadmin/
+    - /pma/
+    - /adminer.php
+    # --- Tomcat / JMX / JBoss ---
+    - /manager/html
+    - /manager/jmxproxy
+    - /jmx-console
+    - /web-console
+    - /admin-console
+    - /invoker/
+    - /status?full=true
+    # --- CMS admin surfaces ---
+    - /wp-admin/
+    - /wp-login.php
+    - /wp-content/plugins/
+    - /wp-includes/
+    - /administrator/index.php
+    - /sugarcrm/
+    - /AdaptCMS/
+    - /solr/
+    - /CDGServer3/
+    # --- Leaked repo / config / backup files ---
+    - /.git/
+    - /.svn/
+    - /.hg/
+    - /.DS_Store
+    - /.bash_history
+    - /.npmrc
+    - /.ssh/
+    - /.aws/
+    - /.env
+    - /config.php
+    - /configuration.php
+    - /web.config
+    - /WEB-INF/
+    - /application.wadl
+    - /api/swagger
+    - /swagger-ui
+    - /debug/pprof
+    - /actuator
+    - /console/
+    - /install.php
+    - /setup.php
+    - /phpinfo.php
+    - .bak
+    - .old
+    - .swp
+    - .backup
+    - .orig
+    - "~admin"
+    - "~root"
+    - "~toor"
+    - "~user"
+    - "~www"
+    - "~web"
+    # --- JSF/Struts markers ---
+    - /faces/javax.faces.resource
+    - /struts2-showcase
+    # --- Keycloak / OIDC harvesting ---
+    - /realms/master/protocol/openid-connect
+    # --- Webshell suffixes ---
+    - /shell.jsp
+    - /shell.php
+    - /cmd.jsp
+    - /c99.php
+    - /r57.php

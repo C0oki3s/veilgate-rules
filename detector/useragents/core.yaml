@@ -1,0 +1,109 @@
+# Suspicious User-Agent substrings — core list shipped with veilgate.
+# HTTP client libraries, scanners, bruteforcers, recon tools, exploit frameworks.
+# One substring per line; comparisons are case-insensitive; first match wins.
+# Add community tool UAs in tools/ subdirectory files.
+
+suspicious_user_agents:
+  substrings:
+    # --- HTTP client libraries (AI agents, exploit scripts) ---
+    - python-requests
+    - python-urllib
+    - python-httpx
+    - aiohttp
+    - go-http-client
+    - okhttp
+    - reqwest
+    - libwww-perl
+    - ruby
+    - java/
+    # --- Classic CLI fetchers ---
+    - "curl/"
+    - "wget/"
+    - "httpie/"
+    # --- Active vulnerability scanners ---
+    - nikto
+    - nmap
+    - sqlmap
+    - nuclei
+    - zgrab
+    - masscan
+    - zmap
+    - wpscan
+    - joomscan
+    - droopescan
+    - openvas
+    - nessus
+    - acunetix
+    - burp
+    - caido
+    - zaproxy
+    - zap/
+    - wapiti
+    - wfuzz
+    - commix
+    - xsstrike
+    # --- Directory / content bruteforcers ---
+    - ffuf
+    - gobuster
+    - dirb
+    - dirsearch
+    - feroxbuster
+    - dirbuster
+    - kiterunner
+    # --- Subdomain / recon tools ---
+    - subfinder
+    - amass
+    - assetfinder
+    - findomain
+    - naabu
+    - httpx
+    - katana
+    - katana/
+    - gospider
+    - hakrawler
+    - gau/
+    - waybackurls
+    # --- OOB / interaction-based discovery ---
+    - interactsh-client
+    - interactsh
+    - collaborator
+    # --- Secrets / auth fuzzing ---
+    - trufflehog
+    - gitleaks
+    - arjun
+    - paramspider
+    - jwt_tool
+    - jwt-tool
+    - jwtxpl
+    # --- WAF fingerprinting / evasion ---
+    - wafw00f
+    - identywaf
+    # --- Exploit frameworks ---
+    - metasploit
+    - msfconsole
+    - cobaltstrike
+    - "sliver "
+    - havoc
+    # --- Headless browsers for automation/scraping ---
+    - headlesschrome
+    - phantomjs
+    - puppeteer
+    - playwright
+    - selenium
+    - chromedriver
+    # --- LLM pentesting agent tokens ---
+    - pentest
+    - scanner
+    - strix
+    - pentagi
+    - hexstrike
+    - cai-agent
+    - autogpt
+    - pentestgpt
+
+browser_headers:
+  hints:
+    - Accept-Language
+    - Accept-Encoding
+    - Sec-Fetch-Site
+    - Sec-Fetch-Mode

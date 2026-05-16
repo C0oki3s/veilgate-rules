@@ -1,0 +1,33 @@
+# WordPress Contest Gallery plugin upload path — SQLi / file upload CVE.
+# Attack: cve / wordpress | Feature: path_ngram
+candidates:
+  - id: VG-PATH-017
+    feature: path_ngram
+    bucket: wp-content/uploads/contest-gallery
+    posterior: 0.995049504950495
+    support: 200
+    active: true
+    info:
+      name: WordPress Contest Gallery plugin upload path (CVE)
+      author: community
+      severity: critical
+      description: |
+        The path `wp-content/uploads/contest-gallery` maps to the WordPress
+        Contest Gallery plugin upload directory. Observed exactly 200 times in
+        a tight burst during April 2026, suggesting a coordinated campaign
+        targeting this specific plugin. Contest Gallery has documented SQL
+        injection (CVE-2021-24946) and unauthenticated arbitrary file upload
+        vulnerabilities affecting versions before 19.1.5.
+      impact: |
+        Targeted exploit of Contest Gallery plugin. SQL injection can dump the
+        entire WordPress database. File upload to this directory can deliver a
+        web shell leading to full server compromise.
+      tags: [path_ngram, scanner, exploit, wordpress, sqli, file-upload, cve]
+      reference:
+        - https://wpscan.com/plugin/contest-gallery/
+        - https://nvd.nist.gov/vuln/detail/CVE-2021-24946
+      metadata:
+        verified: "true"
+        source: community
+        false_positive_rate: low
+        cve: CVE-2021-24946

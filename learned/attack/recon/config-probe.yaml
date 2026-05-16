@@ -1,0 +1,28 @@
+# config path probe — credential and secrets file disclosure reconnaissance.
+# Attack: recon | Feature: path_ngram
+candidates:
+  - id: VG-PATH-009
+    feature: path_ngram
+    bucket: config
+    posterior: 0.9964285714285714
+    support: 278
+    active: true
+    info:
+      name: config file/directory probe
+      author: community
+      severity: medium
+      description: |
+        The segment `config` in a URL path. While legitimate apps may expose
+        `/config/` routes, the April 2026 dataset shows this appearing almost
+        exclusively in scanner sessions (278 observations, posterior 0.996).
+        Scanners probe for `config.php`, `config.yml`, `config.json`,
+        `.config`, `config.inc.php` and similar files that may contain
+        database credentials, API keys, or application secrets.
+      impact: |
+        Credential or secrets file disclosure. A readable config file typically
+        exposes database passwords, API keys, or cloud credentials.
+      tags: [path_ngram, recon, payload, attack, enumerate]
+      metadata:
+        verified: "true"
+        source: community
+        false_positive_rate: medium

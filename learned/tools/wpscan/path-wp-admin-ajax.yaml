@@ -1,0 +1,32 @@
+# WordPress admin-ajax.php unauthenticated AJAX handler abuse.
+# Tool: wpscan | Feature: path_ngram
+candidates:
+  - id: VG-PATH-015
+    feature: path_ngram
+    bucket: wp-admin/admin-ajax.php
+    posterior: 0.9972677595628415
+    support: 364
+    active: true
+    info:
+      name: WordPress admin-ajax.php unauthenticated abuse path
+      author: community
+      severity: high
+      description: |
+        The `wp-admin/admin-ajax.php` endpoint is the WordPress AJAX handler,
+        intentionally accessible to unauthenticated users. Observed 364 times.
+        Exploited by automated tools to trigger unauthenticated actions in
+        vulnerable plugins (CVE-2023-30777, CVE-2024-2194 and many others).
+        WPScan and Nuclei both carry templates targeting this endpoint.
+      impact: |
+        Exploit delivery to vulnerable WordPress plugin AJAX handlers.
+        Commonly leads to data exfiltration, privilege escalation, arbitrary
+        file read, or remote code execution depending on the target plugin.
+      tags: [path_ngram, scanner, exploit, wordpress, ajax, payload, wpscan, nuclei]
+      reference:
+        - https://wpscan.com/wordpresses/
+        - https://github.com/wpscanteam/wpscan
+      metadata:
+        verified: "true"
+        source: community
+        false_positive_rate: low
+        tool: wpscan

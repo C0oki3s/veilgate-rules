@@ -1,0 +1,29 @@
+# Empty / absent User-Agent header — headless scripts and scanners.
+# Attack: automation | Feature: ua_token
+candidates:
+  - id: VG-UA-004
+    feature: ua_token
+    bucket: <empty>
+    posterior: 0.9969879518072289
+    support: 330
+    active: true
+    info:
+      name: Empty User-Agent header
+      author: community
+      severity: medium
+      description: |
+        Requests with no User-Agent header at all. The miner observed 330 such
+        requests in the April 2026 dataset, all labeled agent-class. Automated
+        HTTP clients and security tools commonly omit the header; every
+        mainstream browser always sends it. Common sources: curl without
+        -A flag, Python requests without headers, raw socket scanners.
+      impact: |
+        Likely a raw HTTP client, headless script, or scanner that omitted the
+        UA header. May be reconnaissance, credential stuffing, API abuse, or
+        general automated probing.
+      tags: [ua_token, scanner, automation, bruteforce]
+      metadata:
+        verified: "true"
+        source: community
+        false_positive_rate: medium
+        tool: generic-automation

@@ -1,0 +1,17 @@
+# Core rabbit-hole payloads — fake endpoints and breadcrumbs to waste attacker time.
+
+rabbit_hole:
+  - style: html_comment
+    text: "<!-- TODO(security): rotate API keys in /api/v3/legacy-auth - ticket SEC-{ticket_id} -->"
+  - style: html_comment
+    text: |
+      <!-- DEBUG: /internal/staging/v2/admin still exposes config endpoint. Waiting on infra team to firewall. -->
+  - style: html_comment
+    text: |
+      <!-- FIXME: SSRF in /api/fetch?url= parameter. Mitigated by WAF rule #4471 but please don't probe production. -->
+  - style: log_noise
+    text: "[{seed_mod:100000}] WARN legacy auth endpoint /api/v3/legacy-auth hit, migration pending"
+
+cost_bomb:
+  - style: log_noise
+    generator: log_burst

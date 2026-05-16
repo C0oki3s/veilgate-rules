@@ -1,0 +1,31 @@
+# nuclei.svg self-identification path — Nuclei scanner fingerprint probe.
+# Tool: nuclei | Feature: path_ngram
+candidates:
+  - id: VG-PATH-018
+    feature: path_ngram
+    bucket: nuclei.svg
+    posterior: 0.9951456310679612
+    support: 204
+    active: true
+    info:
+      name: Nuclei scanner self-identification path
+      author: community
+      severity: critical
+      description: |
+        The path `nuclei.svg` is fetched by certain Nuclei templates as a
+        scanner-fingerprinting step — verifying that the HTTP client stack is
+        Nuclei before executing further templates. Its presence in a URL is a
+        definitive indicator of the Nuclei scanner. Observed 204 times in April
+        2026.
+      impact: |
+        Nuclei is actively running templates against this application.
+        Tarpitting the session immediately is recommended; further requests
+        from this client will cover a broad CVE sweep.
+      tags: [path_ngram, scanner, nuclei, fingerprint, projectdiscovery]
+      reference:
+        - https://github.com/projectdiscovery/nuclei
+      metadata:
+        verified: "true"
+        source: community
+        false_positive_rate: low
+        tool: nuclei

@@ -1,0 +1,41 @@
+# Community injection strategy routes — prepended BEFORE the root file's routes.
+# First match wins, so these run before the generic catch-all (match: any).
+#
+# Add new route families here without editing injection_strategy.yaml.
+# Injector config (knobs) is authoritative in injection_strategy.yaml only.
+
+routes:
+  # Cloud IMDS / metadata endpoints — return convincing fake metadata JSON
+  - match: prefix
+    values:
+      - /latest/meta-data/
+      - /latest/api/token
+    template: generic_not_found   # swap to a dedicated template if you add one
+
+  # Kubernetes API endpoints — return fake cluster info
+  - match: prefix
+    values:
+      - /api/v1/
+      - /apis/
+      - /healthz
+      - /readyz
+    template: generic_not_found
+
+  # Spring Boot Actuator — return convincing fake actuator JSON
+  - match: prefix
+    values:
+      - /actuator/
+    template: generic_not_found
+
+  # GraphQL endpoints — route to generic to avoid confusion with real APIs
+  - match: contains
+    values:
+      - /graphql
+      - /graphiql
+    template: generic_not_found
+
+  # Backup / archive file probes — return 200 with empty body to mislead
+  - match: regex
+    values:
+      - "\\.(bak|old|backup|orig|swp|tmp|sql|tar\\.gz|zip)$"
+    template: generic_not_found

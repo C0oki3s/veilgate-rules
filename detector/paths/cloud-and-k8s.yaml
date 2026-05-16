@@ -1,0 +1,42 @@
+# Cloud metadata and SSRF-bait paths that every cloud scanner probes.
+# Added to toolchain probe_paths so a single hit bumps the toolchain score.
+toolchain:
+  probe_paths:
+    # AWS IMDS v1 / v2
+    - /latest/meta-data/
+    - /latest/user-data
+    - /latest/api/token
+    # GCP metadata
+    - /computeMetadata/v1/
+    # Azure IMDS
+    - /metadata/instance
+    # Generic cloud-init
+    - /openstack/latest/meta_data.json
+    # Kubernetes API / dashboard
+    - /api/v1/namespaces
+    - /apis/apps/v1/
+    - /healthz
+    - /readyz
+    - /k8s/
+    - /kubernetes/
+    # Spring Boot Actuator
+    - /actuator/env
+    - /actuator/health
+    - /actuator/mappings
+    - /actuator/beans
+    # Prometheus / Grafana scrape endpoints
+    - /metrics
+    - /debug/vars
+    - /debug/pprof/
+
+# Wordlist path markers for cloud / k8s recon tools.
+wordlist_paths:
+  substrings:
+    - /latest/meta-data
+    - /computeMetadata/
+    - /metadata/instance
+    - /api/v1/namespaces
+    - /apis/apps/v1/
+    - /actuator/env
+    - /actuator/beans
+    - /actuator/mappings

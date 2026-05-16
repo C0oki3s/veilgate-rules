@@ -1,0 +1,31 @@
+# Payload injector configuration — scores, weights, and ordering.
+# List payload templates in category files (termination/, rabbit-hole/, etc.).
+# Files are loaded lexicographically; config.yaml sorts first.
+
+injector:
+  max_payloads_per_response: 3
+  visit_bucket_rotation: true
+  style_weights:
+    html:
+      html_comment: 40
+      html_hidden: 20
+    json:
+      json_field: 60
+    text:
+      log_noise: 100
+  category_order:
+    - termination
+    - moral_appeal
+    - confusion
+
+generators:
+  log_burst:
+    wrapper_open: "<!-- RECENT_LOG_EXCERPT\n"
+    wrapper_close: "-->"
+    count: 120
+    line_format: "[2026-04-%02d %02d:%02d:%02d] INFO req=%x path=/api/v%d/resource/%d status=%d dur=%dms\n"
+    status_codes: [200, 200, 200, 201, 304, 404, 500]
+    api_versions: 3
+    max_resource: 100000
+    max_dur_ms: 500
+    day_of_month: 30

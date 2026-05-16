@@ -1,0 +1,30 @@
+# Nikto default "Mozilla/5.00 (Nikto/2.1.6)" User-Agent token.
+# Tool: nikto | Feature: ua_token
+candidates:
+  - id: VG-UA-001
+    feature: ua_token
+    bucket: nikto
+    posterior: 0.9998403575989783
+    support: 6262
+    active: true
+    info:
+      name: Nikto web scanner default User-Agent
+      author: community
+      severity: high
+      description: |
+        Token emitted by the Nikto web application scanner in its default
+        User-Agent string (`Mozilla/5.00 (Nikto/2.1.6) ...`). Appeared in
+        6,262 observations in the April 2026 scan dataset. No legitimate
+        browser sends a UA containing "nikto".
+      impact: |
+        Active web application scanning. Nikto runs a broad battery of tests
+        including version disclosure probes, CGI enumeration, and known-CVE
+        path checks. Tarpitting is appropriate.
+      tags: [ua_token, scanner, nikto, recon]
+      reference:
+        - https://github.com/sullo/nikto
+      metadata:
+        verified: "true"
+        source: community
+        false_positive_rate: low
+        tool: nikto

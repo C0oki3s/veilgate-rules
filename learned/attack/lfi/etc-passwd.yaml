@@ -1,0 +1,31 @@
+# etc/passwd path n-gram — classic Linux LFI credential file target.
+# Attack: local-file-inclusion | Feature: path_ngram
+candidates:
+  - id: VG-PATH-006
+    feature: path_ngram
+    bucket: etc/passwd
+    posterior: 0.995475113122172
+    support: 219
+    active: true
+    info:
+      name: /etc/passwd LFI probe
+      author: community
+      severity: critical
+      description: |
+        The path n-gram `etc/passwd` — the canonical Linux Local File
+        Inclusion target. Observed 219 times in combination with traversal
+        sequences (VG-PATH-001 through VG-PATH-003). Any scanner or exploit
+        tool that tests for LFI will request this file. No legitimate web
+        application exposes an endpoint whose path contains `etc/passwd`.
+      impact: |
+        Attacker is attempting to read the system password file. In a
+        successful LFI scenario this exposes OS usernames and potentially
+        crackable password hashes (if `/etc/shadow` is also readable).
+      tags: [path_ngram, lfi, payload, attack, recon, nuclei, nikto]
+      reference:
+        - https://owasp.org/www-community/attacks/Path_Traversal
+        - https://github.com/projectdiscovery/nuclei-templates/search?q=etc%2Fpasswd
+      metadata:
+        verified: "true"
+        source: community
+        false_positive_rate: low

@@ -1,0 +1,115 @@
+# Injection markers — attack payload substrings and headers to scan.
+# Covers Log4Shell, Spring4Shell, SSTI, XSS, SQLi, NoSQLi, RCE,
+# path traversal, SSRF, CRLF injection, and null-byte tricks.
+# Add OOB interaction hosts in oob.yaml.
+
+injection_markers:
+  headers:
+    - User-Agent
+    - Referer
+    - X-Forwarded-For
+    - X-Forwarded-Host
+    - X-Real-IP
+    - X-Original-URL
+    - X-Rewrite-URL
+    - Host
+    - Cookie
+  substrings:
+    # --- Log4Shell / JNDI ---
+    - "${jndi:"
+    - "${lower:"
+    - "${upper:"
+    - "${env:"
+    - "${date:"
+    - "${sys:"
+    - "${::-j}"
+    # --- Spring4Shell / OGNL / SpEL ---
+    - class.module.classLoader
+    - "%{(#"
+    - "T(java.lang.Runtime)"
+    # --- SSTI ---
+    - "{{7*7}}"
+    - "{{config"
+    - "${7*7}"
+    - "<%= 7*7 %>"
+    # --- XSS ---
+    - "<script"
+    - "onerror="
+    - "onload="
+    - "javascript:"
+    - "alert("
+    - "alert(1)"
+    - "prompt("
+    - "document.cookie"
+    # --- SQLi ---
+    - " union select"
+    - "union+select"
+    - "UNION%20SELECT"
+    - "' or "
+    - "\" or "
+    - " or 1=1"
+    - "' OR '1"
+    - "SLEEP("
+    - "BENCHMARK("
+    - "pg_sleep("
+    - "WAITFOR DELAY"
+    - "information_schema"
+    - "ORDER BY 1--"
+    # --- NoSQLi ---
+    - "'$where'"
+    - "'$ne'"
+    - "'$regex'"
+    # --- RCE / command injection ---
+    - ";id"
+    - "|id"
+    - "&&id"
+    - "`id`"
+    - "$(id)"
+    - "/bin/sh"
+    - "/bin/bash"
+    - "wget "
+    - "curl "
+    - "; cat /etc/"
+    # --- Path traversal ---
+    - "../"
+    - "..%2f"
+    - "..%2F"
+    - "..\\"
+    - "..%5c"
+    - "/etc/passwd"
+    - "/etc/shadow"
+    - "boot.ini"
+    # --- SSRF / localhost probing ---
+    - "http://169.254.169.254"
+    - "169.254.169.254/latest/meta-data"
+    - "file:///etc/"
+    - "gopher://"
+    - "dict://"
+    # --- CRLF / header injection ---
+    - "%0d%0a"
+    - "%0D%0A"
+    - "\r\nSet-Cookie:"
+    # --- Null byte / encoding tricks ---
+    - "%00"
+    - "\\x00"
+
+# OOB callback hosts — nuclei/Burp Collaborator/interactsh callback domains.
+oob_interaction:
+  substrings:
+    - ".oast.me"
+    - ".oast.online"
+    - ".oast.pro"
+    - ".oast.site"
+    - ".oast.fun"
+    - ".oast.live"
+    - ".oastify.com"
+    - ".burpcollaborator.net"
+    - ".interact.sh"
+    - ".requestbin.net"
+    - ".requestbin.com"
+    - ".webhook.site"
+    - ".ngrok.io"
+    - ".ngrok-free.app"
+    - "canarytokens.com"
+    - ".dnslog.cn"
+    - ".interactsh"

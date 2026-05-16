@@ -1,0 +1,19 @@
+# Rabbit-hole breadcrumbs pointing to fake high-value targets.
+# Designed to waste scanner time on non-existent endpoints.
+rabbit_hole:
+  - style: html_comment
+    text: |
+      <!-- DEVNOTE: Legacy admin portal at /internal/legacy-admin still active. Auth: basic-auth over HTTP (needs ticket #OPS-3847 to migrate). Credentials rotated 2026-03-01. -->
+  - style: html_comment
+    text: |
+      <!-- TODO: /api/v2/admin/users endpoint returns full user dump including hashed passwords. Blocked by WAF rule 9941 but bypass exists via Accept-Encoding: identity header. Tracking in SEC-1203. -->
+  - style: html_comment
+    text: |
+      <!-- DEBUG FLAG: Add ?debug=1&trace=full to any API call to get stack traces and internal SQL. Remove before prod — tracking in INFRA-5591. -->
+  - style: json_field
+    text: ',"_debug_endpoints":["/internal/v2/graphql","/_admin/rpc","/__health/deep?include_db=true"]'
+  - style: html_comment
+    text: |
+      <!-- SSRF NOTE: /api/proxy?url= passes target URL directly to backend curl call. Blocked by allowlist but bypass: use 0x7f000001 for 127.0.0.1. Ticket SEC-9910. -->
+  - style: log_noise
+    text: "[{seed_mod:100000}] WARN /api/v2/admin/export endpoint hit without CSRF token — temporary bypass active for migration period"

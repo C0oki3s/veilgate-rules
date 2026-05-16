@@ -1,0 +1,43 @@
+# Sub-100ms inter-request timing — machine/bot request cadence.
+# Attack: automation | Feature: timing_bucket
+#
+# WARNING: environment-sensitive signal. Fast CDN edges or co-located
+# attackers can produce le_0.1 even for legitimate traffic. Use as a
+# supporting signal, not a standalone gate.
+candidates:
+  - id: VG-TIME-001
+    feature: timing_bucket
+    bucket: le_0.1
+    posterior: 0.9999588443493291
+    support: 24296
+    active: true
+    info:
+      name: Sub-100ms inter-request timing (bot-rate)
+      author: community
+      severity: medium
+      description: |
+        Requests arriving less than 100ms after the previous request from the
+        same client. The miner observed 24,296 such requests — the highest
+        support of any timing pattern in the April 2026 dataset. Human browsing
+        rarely sustains sub-100ms cadence; automated scanners, fuzzers, and
+        bruteforce tools routinely do. Common sources: dirsearch, ffuf,
+        feroxbuster, sqlmap, Nuclei with high concurrency, Hydra.
+      impact: |
+        Client is operating at machine speed. Combined with scanner UA or
+        attack-path signals this is a strong composite indicator of automated
+        tooling. Standalone it is a weaker signal due to fast-connection
+        false positives.
+      remediation: |
+        Do not use this rule in isolation — combine with a `ua_token` or
+        `path_ngram` signal for reliable tarpitting. Set
+        `score_challenge_threshold` so this signal alone only triggers a
+        challenge, not a full tarpit.
+      tags: [timing_bucket, automation, bruteforce, fuzzer, scanner]
+      reference:
+        - https://github.com/epi052/feroxbuster
+        - https://github.com/ffuf/ffuf
+        - https://github.com/maurosoria/dirsearch
+      metadata:
+        verified: "true"
+        source: community
+        false_positive_rate: medium

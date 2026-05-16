@@ -1,0 +1,31 @@
+# WordPress /wp-admin/ panel probe — admin login bruteforce / XML-RPC abuse.
+# Tool: wpscan | Feature: path_ngram
+candidates:
+  - id: VG-PATH-013
+    feature: path_ngram
+    bucket: wp-admin
+    posterior: 0.9978991596638656
+    support: 474
+    active: true
+    info:
+      name: WordPress admin panel path
+      author: community
+      severity: high
+      description: |
+        Direct probe of the WordPress admin directory (`/wp-admin/`). Observed
+        474 times. Automated tools including WPScan, Nuclei, and credential
+        stuffing frameworks target this path for admin panel access, XML-RPC
+        abuse, and theme/plugin enumeration.
+      impact: |
+        WordPress admin login bruteforce, plugin/theme enumeration, or XML-RPC
+        credential stuffing. Admin access leads to full site takeover via
+        plugin or theme file upload.
+      tags: [path_ngram, scanner, bruteforce, enumerate, wordpress, wpscan, recon]
+      reference:
+        - https://github.com/wpscanteam/wpscan
+        - https://github.com/projectdiscovery/nuclei-templates/tree/main/http/vulnerabilities/wordpress
+      metadata:
+        verified: "true"
+        source: community
+        false_positive_rate: low
+        tool: wpscan

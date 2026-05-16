@@ -1,0 +1,32 @@
+# OOB callback hosts used by popular security tools.
+# A payload containing any of these in path, query, or header is almost
+# certainly an automated probe attempting out-of-band exfiltration.
+oob_interaction:
+  substrings:
+    # Projectdiscovery interactsh (nuclei OOB)
+    - .oast.me
+    - .oast.pro
+    - .oast.fun
+    - .oast.site
+    - .oast.online
+    - .oast.live
+    - interact.sh
+    # Burp Collaborator
+    - .burpcollaborator.net
+    - .oastify.com
+    # SSRF canaries / custom infra
+    - .canarytokens.com
+    - .canarytokens.org
+    - .requestbin.com
+    - .pipedream.net
+    - webhook.site
+    - ngrok.io
+    # DNS rebinding hosts
+    - .1u.ms
+    - .nip.io
+    - .xip.io
+    # Other common OAST infra
+    - .dnslog.cn
+    - ceye.io
+    - .vcap.me
+    - .localtest.me

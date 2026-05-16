@@ -1,0 +1,25 @@
+# Extended server version strings — modern cloud-native and edge stacks.
+versions:
+  - "nginx/1.25.3"
+  - "nginx/1.27.0"
+  - "Apache/2.4.58 (Ubuntu)"
+  - "Apache/2.4.62 (Debian)"
+  - "openresty/1.25.3.2"
+  - "Caddy/2.8.4"
+  - "Envoy/1.30.1"
+  - "lighttpd/1.4.76"
+  - "Microsoft-IIS/10.0.20348.0"
+  - "Kestrel"
+  - "gunicorn/23.0.0"
+  - "uvicorn/0.30.0"
+  - "Jetty/12.0.8"
+  - "WildFly/33.0.1.Final"
+
+stacks:
+  - go-fiber
+  - rust-axum
+  - python-fastapi
+  - elixir-phoenix
+  - kotlin-ktor
+  - scala-play
+  - dotnet-blazor

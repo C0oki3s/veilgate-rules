@@ -1,0 +1,46 @@
+# Fake data identity pools — used by profile.go to assign each client a
+# deterministic fake server identity. All pools are hot-reloadable.
+
+versions:
+  - "Apache/2.4.41 (Ubuntu)"
+  - "nginx/1.18.0"
+  - "nginx/1.20.2"
+  - "Apache/2.4.54 (Debian)"
+  - "nginx/1.24.0"
+  - "Microsoft-IIS/10.0"
+
+stacks:
+  - php
+  - python-django
+  - node-express
+  - ruby-rails
+  - java-spring
+
+companies:
+  - Acme Corp
+  - Globex Industries
+  - Initech
+  - Umbrella
+  - Soylent Labs
+  - Hooli
+  - Pied Piper
+
+admin_users:
+  - admin
+  - root
+  - administrator
+  - superuser
+  - sysadmin
+
+admin_passes:
+  - password123
+  - admin2024
+  - ChangeMe!
+  - Welcome@1
+  - P@ssw0rd
+
+email_domains:
+  - acme
+  - globex
+  - initech
+  - umbrella

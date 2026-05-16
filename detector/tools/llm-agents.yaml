@@ -1,0 +1,35 @@
+# LLM-based pentesting agents and AI-augmented scanners.
+# These UA tokens appeared in wild traffic from agents built on GPT-4,
+# Claude, Gemini, and open-source LLM frameworks (2024-2026 vintage).
+suspicious_user_agents:
+  substrings:
+    # --- LLM pentesting frameworks ---
+    - pentestgpt
+    - hackingbuddygpt
+    - gpt-vuln
+    - vulnhuntr
+    - agentless
+    - openai-agent
+    - claude-agent
+    - gemini-agent
+    - autogen
+    - crewai
+    - langchain
+    - smolagents
+    - agno
+    - browser-use
+    # --- AI-augmented recon tools ---
+    - reconaio
+    - nuclei-ai
+    - trufflehog-ai
+    - semgrep-agent
+    # --- Generic LLM proxy user-agent leakage ---
+    - litellm
+    - openrouter
+    - gpt4all
+    - ollama/
+    - localai/
+    # --- AI wrapper shells that expose UA ---
+    - msfconsole-ai
+    - metasploit-framework-ai
+    - sliver-ai

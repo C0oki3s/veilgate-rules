@@ -1,0 +1,31 @@
+# Cloud provider IP ranges extended beyond the seed lists in ip_reputation.yaml.
+# Update these periodically from the official provider JSON feeds.
+#
+# AWS:   https://ip-ranges.amazonaws.com/ip-ranges.json
+# GCP:   https://www.gstatic.com/ipranges/cloud.json
+# Azure: ServiceTags_Public_*.json (Microsoft Download Center)
+
+categories:
+  - name: cloud
+    # Additional AWS ranges: Lambda, EKS, Fargate egress clusters
+    cidrs:
+      - 3.0.0.0/8       # AWS ap-southeast-1 / ap-south-1
+      - 13.32.0.0/12    # AWS CloudFront
+      - 15.177.0.0/18   # AWS Global Accelerator
+      - 13.248.0.0/16   # AWS us-west-2
+      - 34.192.0.0/12   # AWS us-east-1 extended
+      - 35.160.0.0/13   # AWS us-west-2 extended
+      # Additional GCP ranges
+      - 34.0.0.0/10     # GCP us-central1
+      - 35.196.0.0/14   # GCP us-east1
+      - 34.80.0.0/12    # GCP asia-east1
+      # Additional Azure ranges
+      - 13.64.0.0/11    # Azure East US
+      - 52.224.0.0/11   # Azure East US 2
+      - 23.96.0.0/13    # Azure West US
+      # Vultr cloud
+      - 64.237.32.0/19
+      - 108.61.192.0/18
+      # Fly.io
+      - 66.241.124.0/23
+      - 213.188.192.0/21

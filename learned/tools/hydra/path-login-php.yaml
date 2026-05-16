@@ -1,0 +1,31 @@
+# login.php direct probe — PHP application credential bruteforce.
+# Tool: hydra | Feature: path_ngram
+candidates:
+  - id: VG-PATH-016
+    feature: path_ngram
+    bucket: login.php
+    posterior: 0.9957983193277311
+    support: 236
+    active: true
+    info:
+      name: PHP login page probe — credential bruteforce target
+      author: community
+      severity: high
+      description: |
+        Direct access to `login.php`. Observed 236 times. Tools performing
+        credential stuffing (Hydra, Medusa, Burp Intruder, custom scripts) and
+        WordPress / phpMyAdmin bruteforcers target this filename specifically.
+        The filename appears in Hydra's default web-form wordlists.
+      impact: |
+        Credential bruteforce or login enumeration against a PHP application.
+        Successful login gives attacker access to whatever the target app
+        controls (admin panel, user data, file upload forms).
+      tags: [path_ngram, bruteforce, payload, attack, recon, hydra]
+      reference:
+        - https://github.com/vanhauser-thc/thc-hydra
+        - https://github.com/urbanadventurer/WhatWeb
+      metadata:
+        verified: "true"
+        source: community
+        false_positive_rate: medium
+        tool: hydra

@@ -1,0 +1,32 @@
+# WordPress wp-content/plugins/ enumeration — installed plugin CVE matching.
+# Tool: wpscan | Feature: path_ngram
+candidates:
+  - id: VG-PATH-014
+    feature: path_ngram
+    bucket: wp-content/plugins
+    posterior: 0.9994199535962877
+    support: 1722
+    active: true
+    info:
+      name: WordPress plugin enumeration path
+      author: community
+      severity: high
+      description: |
+        The n-gram `wp-content/plugins` indicating automated WordPress plugin
+        enumeration. Observed 1,722 times — the second-highest support of any
+        path pattern in the April 2026 dataset. WPScan, Nuclei, and dirsearch
+        enumerate installed plugins to match them against known CVEs in their
+        respective databases.
+      impact: |
+        Plugin fingerprinting leading to targeted CVE exploitation. Knowing the
+        installed plugin list and versions allows precise exploit selection
+        without noisy full-scan activity.
+      tags: [path_ngram, scanner, enumerate, wordpress, wpscan, plugin-enum]
+      reference:
+        - https://github.com/wpscanteam/wpscan
+        - https://wpscan.com/plugins/
+      metadata:
+        verified: "true"
+        source: community
+        false_positive_rate: low
+        tool: wpscan

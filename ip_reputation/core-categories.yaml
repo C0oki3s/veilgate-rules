@@ -1,0 +1,59 @@
+# Core IP reputation categories — Tor exits, anonymizers, cloud/DC ranges,
+# and private-IP leak detection. Extend by adding files to cloud/, vpn/, tor/.
+
+categories:
+  - name: tor_exit
+    points: 35
+    cidrs: []   # Populate from https://check.torproject.org/exit-addresses
+
+  - name: anonymizer
+    points: 30
+    cidrs: []   # Populate from https://github.com/X4BNet/lists_vpn
+
+  - name: cloud
+    points: 20
+    cidrs:
+      # AWS us-east-1 (extend from https://ip-ranges.amazonaws.com/ip-ranges.json)
+      - 3.80.0.0/12
+      - 18.204.0.0/14
+      - 52.0.0.0/11
+      - 54.80.0.0/12
+      # GCP (extend from https://www.gstatic.com/ipranges/cloud.json)
+      - 34.64.0.0/10
+      - 35.184.0.0/13
+      # Azure (extend from ServiceTags_Public_*.json)
+      - 20.0.0.0/11
+      - 40.64.0.0/10
+      # DigitalOcean
+      - 104.131.0.0/16
+      - 138.68.0.0/16
+      - 159.89.0.0/16
+      - 167.99.0.0/16
+      - 165.22.0.0/16
+      # Linode/Akamai cloud
+      - 45.33.0.0/16
+      - 45.79.0.0/16
+      - 66.175.208.0/20
+      - 96.126.96.0/19
+      # Hetzner
+      - 5.9.0.0/16
+      - 88.198.0.0/16
+      - 136.243.0.0/16
+      # OVH
+      - 51.68.0.0/16
+      - 51.75.0.0/16
+      - 51.89.0.0/16
+      # Contabo
+      - 62.171.128.0/17
+      - 144.91.64.0/18
+      - 173.249.0.0/17
+      - 207.180.192.0/18
+
+  - name: rfc1918_leak
+    points: 15
+    cidrs:
+      - 10.0.0.0/8
+      - 172.16.0.0/12
+      - 192.168.0.0/16
+      - 169.254.0.0/16
+      - 100.64.0.0/10
