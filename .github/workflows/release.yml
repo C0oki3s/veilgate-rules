@@ -1,0 +1,83 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '**/*.yaml'
+      - '**/*.yml'
+      - '!.github/**'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Determine bump level
+        id: bump
+        run: |
+          msg=$(git log -1 --pretty=%B)
+          echo "Commit message:"
+          echo "$msg"
+          if echo "$msg" | grep -qiE '(\[major\]|BREAKING CHANGE)'; then
+            level=major
+          elif echo "$msg" | grep -qiE '\[minor\]'; then
+            level=minor
+          else
+            level=patch
+          fi
+          echo "level=$level" >> "$GITHUB_OUTPUT"
+          echo "Bump level: $level"
+
+      - name: Compute next version
+        id: version
+        run: |
+          last=$(git tag --list 'v*' --sort=-v:refname | head -n1)
+          if [ -z "$last" ]; then
+            last="v0.0.0"
+          fi
+          echo "Last tag: $last"
+          v="${last#v}"
+          IFS='.' read -r major minor patch <<< "$v"
+          case "${{ steps.bump.outputs.level }}" in
+            major) major=$((major+1)); minor=0; patch=0 ;;
+            minor) minor=$((minor+1)); patch=0 ;;
+            patch) patch=$((patch+1)) ;;
+          esac
+          next="v${major}.${minor}.${patch}"
+          echo "next=$next" >> "$GITHUB_OUTPUT"
+          echo "last=$last" >> "$GITHUB_OUTPUT"
+          echo "Next version: $next"
+
+      - name: Create tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "${{ steps.version.outputs.next }}" \
+            -m "Release ${{ steps.version.outputs.next }}"
+          git push origin "${{ steps.version.outputs.next }}"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          notes_args=()
+          if [ "${{ steps.version.outputs.last }}" != "v0.0.0" ]; then
+            notes_args+=(--notes-start-tag "${{ steps.version.outputs.last }}")
+          fi
+          gh release create "${{ steps.version.outputs.next }}" \
+            --title "${{ steps.version.outputs.next }}" \
+            --generate-notes \
+            "${notes_args[@]}"
