@@ -14,9 +14,8 @@ injector:
     text:
       log_noise: 100
   category_order:
-    - termination
-    - moral_appeal
-    - confusion
+    - rabbit_hole
+    - cost_bomb
 
 generators:
   log_burst:

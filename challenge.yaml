@@ -8,8 +8,8 @@
 #
 # Verify endpoint enforces the PoW server-side using signed challenge
 # metadata (challenge + ts + sig), so clients must submit a valid solve.
-difficulty: 4
-token_ttl_minutes: 30
+difficulty: 5
+token_ttl_minutes: 5
 cookie_name: veilgate_pow
 status_code: 503           # 503 keeps polite scanners quiet
 content_type: "text/html; charset=utf-8"

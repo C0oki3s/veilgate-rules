@@ -1,19 +1,37 @@
-# Rabbit-hole breadcrumbs pointing to fake high-value targets.
-# Designed to waste scanner time on non-existent endpoints.
+# Breadcrumb payloads pointing to fake high-value targets.
+# All written as plausible developer or ops notes — no obvious "honeypot" language.
+# The endpoint paths referenced here appear in honeypot_paths / fake_*_paths
+# so probes against them fire detection signals.
+
 rabbit_hole:
+  # Realistic internal ops note referencing /.env.backup (honeypot path).
   - style: html_comment
     text: |
-      <!-- DEVNOTE: Legacy admin portal at /internal/legacy-admin still active. Auth: basic-auth over HTTP (needs ticket #OPS-3847 to migrate). Credentials rotated 2026-03-01. -->
+      <!-- deploy: env snapshot at /.env.backup retained for 72h rollback window — OPS-{ticket_id} -->
+
+  # Plausible GraphQL introspection breadcrumb.
   - style: html_comment
     text: |
-      <!-- TODO: /api/v2/admin/users endpoint returns full user dump including hashed passwords. Blocked by WAF rule 9941 but bypass exists via Accept-Encoding: identity header. Tracking in SEC-1203. -->
+      <!-- GraphQL schema explorer disabled in prod — available in staging at /graphql?explorer=1 -->
+
+  # Fake Prisma Studio breadcrumb.
   - style: html_comment
     text: |
-      <!-- DEBUG FLAG: Add ?debug=1&trace=full to any API call to get stack traces and internal SQL. Remove before prod — tracking in INFRA-5591. -->
-  - style: json_field
-    text: ',"_debug_endpoints":["/internal/v2/graphql","/_admin/rpc","/__health/deep?include_db=true"]'
-  - style: html_comment
-    text: |
-      <!-- SSRF NOTE: /api/proxy?url= passes target URL directly to backend curl call. Blocked by allowlist but bypass: use 0x7f000001 for 127.0.0.1. Ticket SEC-9910. -->
+      <!-- Prisma Studio: not exposed in prod. Dev access via localhost:5555 when PRISMA_STUDIO=1 -->
+
+  # Realistic log entry referencing the /api/internal/debug honeypot.
   - style: log_noise
-    text: "[{seed_mod:100000}] WARN /api/v2/admin/export endpoint hit without CSRF token — temporary bypass active for migration period"
+    text: "[{seed_mod:100000}] INFO /api/internal/debug endpoint gated behind ENABLE_DEBUG env var (currently unset in prod)"
+
+  # Stale JSON field with internal endpoint breadcrumbs.
+  - style: json_field
+    text: ',"_internal":{"studio":"/prisma-studio","openapi":"/api/docs/openapi.json","swagger":"/api/docs/swagger","rpc":"/api/internal/rpc"}'
+
+  # Realistic feature-flag config with internal path breadcrumb.
+  - style: js_string_literal
+    text: '"_featureFlags":{"checkout_v2":true,"admin_v2":false,"support_v2_routing":true,"debug_toolbar":false,"_debug_panel":"/api/internal/debug"}'
+
+  # Realistic migration comment — /.git/config is in fake_git_paths.
+  - style: html_comment
+    text: |
+      <!-- CI: git metadata not stripped from dist bundle — tracked in SEC-{ticket_id}, fix scheduled for 2026-Q3 -->

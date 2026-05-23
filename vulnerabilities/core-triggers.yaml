@@ -2,12 +2,34 @@
 # patterns, and fake lure paths. Add community honeypots in honeypots/ subdir.
 
 honeypot_paths:
+  # Admin / internal panels.
   - /admin-panel-v2
   - /api/internal/debug
+  - /api/internal/profiler
+  - /api/internal/rpc
+  - /api/internal/metrics
+  - /api/internal/flush-cache
+
+  # Config / secrets.
   - /.git/config
   - /.env.backup
+
+  # Legacy WordPress / PHP leftovers (scanner bait).
   - /wp-admin-old
   - /phpmyadmin-backup
+
+  # Modern API discovery paths.
+  - /prisma-studio
+  - /studio
+  - /api/docs/openapi.json
+  - /api/docs/swagger
+  - /api/graphql
+  - /graphql
+  - /v1/models
+
+  # Next.js / Vite debug endpoints.
+  - /__nextjs_original-stack-frame
+  - /api/debug
 
 sql_injection_patterns:
   - "'"
@@ -21,12 +43,101 @@ sql_injection_patterns:
   - "'or'1'='1"
   - "/*"
   - "*/"
+  - "sleep("
+  - "waitfor delay"
+  - "benchmark("
+  - "pg_sleep("
+  - "xp_cmdshell"
+
+ssrf_patterns:
+  - "http://169.254.169.254"
+  - "https://169.254.169.254"
+  - "169.254.169.254/latest/meta-data"
+  - "metadata.google.internal"
+  - "computeMetadata/v1"
+  - "http://localhost"
+  - "http://127.0.0.1"
+  - "http://[::1]"
+  - "http://0.0.0.0"
+  - "file:///etc/"
+  - "gopher://"
+  - "dict://"
+  - "ftp://"
+
+xss_patterns:
+  - "<script"
+  - "</script"
+  - "<img src=x"
+  - "onerror="
+  - "onload="
+  - "javascript:"
+  - "document.cookie"
+  - "alert("
+  - "prompt("
+  - "svg/onload"
+
+path_traversal_patterns:
+  - "../"
+  - "..%2f"
+  - "..%5c"
+  - "%2e%2e%2f"
+  - "..\\"
+  - "/etc/passwd"
+  - "/etc/shadow"
+  - "boot.ini"
+
+command_injection_patterns:
+  - ";id"
+  - "|id"
+  - "&&id"
+  - "`id`"
+  - "$(id)"
+  - "; cat /etc/"
+  - "/bin/sh"
+  - "/bin/bash"
+  - "wget "
+  - "curl "
+
+xxe_patterns:
+  - "<!doctype"
+  - "<!entity"
+  - "system \"file://"
+  - "system 'file://"
+  - "system \"http://"
+
+ssti_patterns:
+  - "{{7*7}}"
+  - "${7*7}"
+  - "<%=7*7%>"
+  - "#{7*7}"
+  - "{{config"
+  - "{{self"
+
+nosql_patterns:
+  - "$where"
+  - "$ne"
+  - "$regex"
+  - "$gt"
+  - "$nin"
+
+prototype_pollution_patterns:
+  - "__proto__"
+  - "constructor[prototype]"
+  - "constructor.prototype"
+  - "prototype.polluted"
 
 fake_git_paths:
   - "/.git/config"
   - "/.git/HEAD"
+  - "/.git/COMMIT_EDITMSG"
+  - "/.git/packed-refs"
+  - "/.git/refs/heads/main"
+  - "/.git/logs/HEAD"
 
 fake_env_paths:
   - "/.env"
   - "/.env.backup"
   - "/.env.prod"
+  - "/.env.local"
+  - "/.env.staging"
+  - "/config/.env"

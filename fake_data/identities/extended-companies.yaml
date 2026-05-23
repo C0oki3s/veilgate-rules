@@ -1,40 +1,42 @@
-# Extended identity pools: more realistic company names, admin accounts,
-# and plausible weak passwords for the fake admin dashboard persona.
+# Extended identity pools: additional realistic SaaS/fintech/commerce company
+# identities for the tarpit renderer. All names sound like real mid-size startups
+# — no sci-fi or pop-culture references that an agent would recognize as fake.
+
 companies:
-  - Veridian Dynamics
-  - Massive Dynamic
-  - Weyland-Yutani Corp
-  - Axiom Industries
-  - Dunder Mifflin Tech
-  - Bluth Company
-  - Oscorp Industries
-  - Tyrell Corporation
-  - Rekall Systems
-  - Cyberdyne Systems
+  - Ironclad Payments
+  - Helio Analytics
+  - Vantage Commerce
+  - Pinnacle Cloud
+  - Harborview Logistics
+  - Clearfield Health
+  - Summit SaaS
+  - Brightline Capital
+  - Edgewood Systems
+  - Riverport Data
 
 admin_users:
-  - webmaster
-  - dbadmin
-  - sa
-  - postgres
-  - mysql
-  - devops
-  - deploy
-  - ops
-  - monitoring
-  - backup
+  - platform@ironclad.io
+  - devops@helio.io
+  - ops@vantage.io
+  - sre@pinnacle.io
+  - deploy@harborview.io
+  - infra@clearfield.io
+  - release@summit.io
+  - monitoring@brightline.io
 
 admin_passes:
-  - Spring2024!
-  - Summer2024@
-  - Admin@123
-  - Passw0rd!
-  - company123
-  - qwerty2024
+  - Fx4!wN7vRk@2
+  - Tz9#mB3qSj&8
+  - Cv6$hD1pYn!5
+  - Gw2@kL8oXr#4
+  - Jy5&nP4tMc!7
 
 email_domains:
-  - veridian
-  - massive-dynamic
-  - tyrell
-  - rekall
-  - cyberdyne
+  - ironclad
+  - helio
+  - vantage
+  - pinnacle
+  - harborview
+  - clearfield
+  - summit
+  - brightline

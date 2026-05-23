@@ -42,7 +42,10 @@ wordlist_paths:
   points: 25
 
 injection_markers:
-  points: 45
+  # Active OWASP exploit payloads should go straight to tarpit. A lone
+  # python-requests UA can stay challenge/observe, but SSRF/XSS/RCE/etc.
+  # should never reach the real upstream.
+  points: 60
 
 oob_interaction:
-  points: 50
+  points: 60

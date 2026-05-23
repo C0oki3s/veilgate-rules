@@ -1,0 +1,37 @@
+# Browser-automation and headless-browser user-agent substrings.
+# These appear in the UA string of automation frameworks even when the
+# operator didn't configure a custom UA.
+#
+# Note: HeadlessChrome is already excluded by looksLikeBrowserUA() in
+# scorer.go (line 419) so it doesn't suppress the sparse_headers signal.
+# Adding it here also fires the suspicious_ua signal for the full 35 pts.
+
+suspicious_user_agents:
+  substrings:
+    # Headless Chrome / Chromium — most automation frameworks expose this
+    # in the UA unless --user-agent is explicitly overridden.
+    - HeadlessChrome
+    - headlesschrome
+    # Playwright-specific marker in some versions
+    - Playwright
+    - playwright
+    # Puppeteer leaks this when launched with default args
+    - puppeteer
+    # Selenium WebDriver default UA suffix
+    - selenium
+    # Microsoft Playwright Test runner
+    - ms-playwright
+    # Common generic bot/scraper UAs
+    - python-playwright
+    - pyppeteer
+    # Strix pentest agent
+    - strix-agent
+    - strix/
+    # Go-rod (Golang CDP browser automation)
+    - go-rod
+    # Ferrum (Rust browser automation)
+    - ferrum/
+    # Browser automation detection strings
+    - webdriver
+    - PhantomJS
+    - SlimerJS

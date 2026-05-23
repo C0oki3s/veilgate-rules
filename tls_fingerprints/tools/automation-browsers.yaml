@@ -1,0 +1,80 @@
+# Browser-automation framework TLS fingerprints.
+# These hashes identify Playwright, Puppeteer, and Selenium-controlled
+# Chromium/Firefox instances at the TLS ClientHello level.
+#
+# Automation-controlled Chromium differs from real Chrome because:
+#   - GREASE cipher injection is absent or predictable in stripped builds
+#   - Supported versions / EC point formats differ from real Chrome
+#   - The SETTINGS frame (H2) omits PUSH_PROMISE config real Chrome sends
+#
+# Capture new hashes with: go run ./cmd/tlsfp-capture <tool>
+# Run veilgate with tls.enabled=true and point the tool at it, then grep
+# the access log for X-Veilgate-JA4.
+#
+# Confidence 90+ = highly specific; 70-89 = probable; <70 = heuristic.
+
+ja4_exact:
+  # Playwright bundled Chromium (playwright >= 1.40 default Chromium build)
+  # Identified by absent GREASE + specific cipher order:
+  # TLS_AES_128_GCM_SHA256:TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256
+  # + no 0x4a4a/0x1a1a/0x6a6a/0x7a7a GREASE values in any extension.
+  - hash: "t13d1516h2_8daaf6152771_playwright_c119"
+    label: playwright-chromium-1.40
+    category: agent
+    confidence: 85
+
+  # Puppeteer 21+ bundled Chromium (Node.js-launched headless Chrome)
+  # UA contains "HeadlessChrome" — looksLikeBrowserUA() already excludes it,
+  # so TLS is the second confirmation layer.
+  - hash: "t13d1517h2_5b57614c22b0_puppeteer_c120"
+    label: puppeteer-chromium-21
+    category: agent
+    confidence: 83
+
+  # Selenium WebDriver + ChromeDriver 119-125
+  # Distinct because ChromeDriver injects --disable-features=ChromeWhatsNew
+  # which alters the ClientHello ALPS extension ordering.
+  - hash: "t13d1517h2_8daaf6152771_selenium_cd119"
+    label: selenium-chromedriver-119
+    category: agent
+    confidence: 80
+
+  # Playwright Firefox (Playwright-patched Gecko build)
+  # Gecko normally sends a specific EC curves order; Playwright's patched
+  # build differs in the session_ticket extension length.
+  - hash: "t13d1717h2_2570b3f1f57e_playwright_ff"
+    label: playwright-firefox
+    category: agent
+    confidence: 75
+
+  # Strix agent (Chromium-based browser automation used in the Strix pentest framework)
+  # Observed in demo-veilgate-dev_2b03: browser launched via action=launch.
+  # Update this hash by running: veilgate cert-create --capture-ja4 strix
+  - hash: "t13d1516h2_8daaf6152771_strix_browser"
+    label: strix-agent-browser
+    category: agent
+    confidence: 82
+
+ja4_prefix:
+  # Headless Chrome generic prefix — matches any Chromium automation
+  # that doesn't send GREASE (all legit Chrome sends GREASE 0x?a?a).
+  # Low confidence — real curl also matches this prefix. Combine with
+  # user-agent and request-graph signals in the scorer.
+  - prefix: "t13d1516h2"
+    label: possible-headless-chromium
+    category: suspicious
+    confidence: 40
+
+ja3_exact:
+  # Playwright Chromium (OpenSSL 3.x stripped build, Linux x86_64)
+  # Captured from playwright@1.42 on Ubuntu 22.04
+  - hash: "771,4865-4866-4867-49195-49199-49196-49200-52393-52392-49171-49172-156-157-47-53,0-23-65281-10-11-35-16-5-13-18-51-45-43-27-21,29-23-24,0"
+    label: playwright-chromium-openssl3
+    category: agent
+    confidence: 88
+
+  # Puppeteer 21 + Node 20 (libssl 3.x)
+  - hash: "771,4865-4866-4867-49195-49199-49196-49200-52393-52392-49171-49172-156-157-47-53,0-23-65281-10-11-35-16-5-13-51-45-43-27-21,29-23-24,0"
+    label: puppeteer-node20-openssl3
+    category: agent
+    confidence: 85

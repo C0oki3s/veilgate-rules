@@ -1,16 +1,35 @@
-# Core rabbit-hole payloads — fake endpoints and breadcrumbs to waste attacker time.
+# Rabbit-hole payloads — breadcrumbs to honeypot paths and time-wasting endpoints.
+# All written as plausible developer notes, not as obvious "hack me" bait.
+# The referenced paths must be listed in honeypot_paths or fake_*_paths so
+# that when the agent probes them, detection fires.
 
 rabbit_hole:
-  - style: html_comment
-    text: "<!-- TODO(security): rotate API keys in /api/v3/legacy-auth - ticket SEC-{ticket_id} -->"
-  - style: html_comment
-    text: |
-      <!-- DEBUG: /internal/staging/v2/admin still exposes config endpoint. Waiting on infra team to firewall. -->
+  # Legacy endpoint still in service — points to /api/v1/support (honeypot).
   - style: html_comment
     text: |
-      <!-- FIXME: SSRF in /api/fetch?url= parameter. Mitigated by WAF rule #4471 but please don't probe production. -->
+      <!-- TODO(platform): /api/v1/support tickets missing rate-limit after 2026-03 auth refactor — tracked in SEC-{ticket_id} -->
+
+  # Log entry style — realistic noise that looks like app logging.
   - style: log_noise
-    text: "[{seed_mod:100000}] WARN legacy auth endpoint /api/v3/legacy-auth hit, migration pending"
+    text: "[{seed_mod:100000}] WARN request to deprecated /api/v1/export endpoint — client should migrate to /api/v2/export"
+
+  # Migration note pointing to a honeypot path.
+  - style: html_comment
+    text: |
+      <!-- ops note: /.env.backup left on origin for rollback window — delete after 2026-06-01 deploy (OPS-{ticket_id}) -->
+
+  # Realistic JSON response field pointing to an admin path that will score.
+  - style: json_field
+    text: ',"_admin_url":"/admin-panel-v2","_admin_note":"legacy panel — migrate to /admin by 2026-Q3"'
+
+  # Realistic server-side include breadcrumb for /.git paths.
+  - style: html_comment
+    text: |
+      <!-- build info: commit a3f9e12 | branch: main | deployed: 2026-04-12 | repo: github.com/northgate/platform -->
+
+  # Internal log line that hints at the /api/internal/debug honeypot path.
+  - style: log_noise
+    text: "[{seed_mod:100000}] DEBUG /api/internal/profiler disabled in prod config — enable with ENABLE_PROFILER=1"
 
 cost_bomb:
   - style: log_noise

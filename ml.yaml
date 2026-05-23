@@ -11,12 +11,12 @@
 enabled: true              # flip to false to stop emitting ml_agent_score
 score_max_points: 40       # ceiling contribution to the overall detector score
 alpha: 0.7                 # 1.0 = pure Bayes, 0.0 = pure Isolation Forest
-burn_in_events: 500        # return 0 until the classifier has seen this much
+burn_in_events: 200        # return 0 until the classifier has seen this much
 # Confidence floor — combined (Bayes + anomaly) below this stays silent.
-# Range [0,1]. 0.2 = ≥8 points at score_max_points=40. Raise to 0.3 if
+# Range [0,1]. 0.15 = ≥6 points at score_max_points=40. Raise to 0.3 if
 # you still see noise on legit traffic; 0 re-enables the old "fire on
 # anything positive" behaviour.
-min_confidence_to_fire: 0.2
+min_confidence_to_fire: 0.15
 
 bayes:
   laplace_smoothing: 1.0

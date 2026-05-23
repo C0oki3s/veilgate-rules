@@ -3,25 +3,107 @@
 # config.yaml sorts first so `any` catch-all in routes stays last.
 
 routes:
+  # Active OWASP attack payloads. These only execute inside the tarpit after
+  # detector scoring has already selected DecisionTarpit.
+  - match: list
+    values: ["xxe_patterns"]
+    template: api_xxe_parse
+
+  - match: list
+    values: ["ssrf_patterns"]
+    template: api_ssrf_fetch
+
+  - match: list
+    values: ["xss_patterns"]
+    template: api_xss_preview
+
+  - match: list
+    values: ["path_traversal_patterns"]
+    template: api_file_read
+
+  - match: list
+    values: ["command_injection_patterns"]
+    template: api_command_exec
+
+  - match: list
+    values: ["ssti_patterns"]
+    template: api_ssti_render
+
+  - match: list
+    values: ["nosql_patterns"]
+    template: api_nosql_query
+
+  - match: list
+    values: ["prototype_pollution_patterns"]
+    template: api_prototype_pollution
+
+  # SQL injection attempts → Prisma-format error (looks like a real ORM bug).
   - match: sqli
     template: sql_error
+
+  # Auth API endpoints — return realistic JWT auth responses.
+  - match: exact
+    values: ["/api/auth/login", "/api/login", "/api/v1/auth/login", "/api/v2/auth/login"]
+    template: api_auth_login
+
+  - match: exact
+    values: ["/api/auth/me", "/api/me", "/api/v1/me", "/api/v2/me", "/api/auth/user"]
+    template: api_auth_me
+
+  # Product/catalog endpoints.
+  - match: prefix
+    values: ["/api/products", "/api/v1/products", "/api/v2/products", "/api/catalog"]
+    template: api_products
+
+  # Order endpoints.
+  - match: prefix
+    values: ["/api/orders", "/api/v1/orders", "/api/v2/orders"]
+    template: api_orders
+
+  # Support ticket endpoints.
+  - match: prefix
+    values: ["/api/support", "/api/v1/support", "/api/tickets"]
+    template: api_support
+
+  # Internal/debug API paths — return Prisma-style 500 (looks like a real unhandled error).
+  - match: prefix
+    values: ["/api/internal/", "/internal/"]
+    template: api_error_500
+
+  # Any other /api/ path that doesn't match above → 401 with JWT error.
+  - match: prefix
+    values: ["/api/"]
+    template: api_unauthorized
+
+  # Root and login pages — React SPA shell.
   - match: exact
     values: ["/", "/index.html"]
     template: login_page
+
   - match: exact
-    values: ["/login", "/signin", "/auth"]
+    values: ["/login", "/signin", "/auth", "/auth/login"]
     template: login_page
+
+  # Admin dashboard.
   - match: prefix
     values: ["/admin", "/dashboard"]
     template: admin_dashboard
+
+  # User listing (admin feature).
   - match: contains
     values: ["/users"]
     template: users_list
+
+  # Git metadata files.
   - match: list
     values: ["fake_git_paths"]
     template: git_config
+
+  # Env/secrets files.
   - match: list
     values: ["fake_env_paths"]
     template: env_backup
+
+  # Everything else → JSON 404 (consistent with SPA/API app behavior).
   - match: any
     template: generic_not_found

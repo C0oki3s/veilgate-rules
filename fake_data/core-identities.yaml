@@ -1,46 +1,62 @@
-# Fake data identity pools — used by profile.go to assign each client a
-# deterministic fake server identity. All pools are hot-reloadable.
+# Core identity pools — used by the tarpit renderer to assign each client
+# a deterministic fake server persona. Real-sounding names; consistent
+# modern tech stack. Agents that reason about company names will see
+# plausible SaaS / fintech / commerce identities, not obvious sci-fi bait.
 
 versions:
-  - "Apache/2.4.41 (Ubuntu)"
-  - "nginx/1.18.0"
-  - "nginx/1.20.2"
-  - "Apache/2.4.54 (Debian)"
+  - "nginx/1.25.3"
+  - "nginx/1.27.0"
   - "nginx/1.24.0"
-  - "Microsoft-IIS/10.0"
+  - "openresty/1.25.3.2"
+  - "Caddy/2.8.4"
 
 stacks:
-  - php
-  - python-django
   - node-express
-  - ruby-rails
-  - java-spring
+  - node-fastify
+  - python-fastapi
+  - go-fiber
+  - rust-axum
 
 companies:
-  - Acme Corp
-  - Globex Industries
-  - Initech
-  - Umbrella
-  - Soylent Labs
-  - Hooli
-  - Pied Piper
+  - Northgate Commerce
+  - Meridian Analytics
+  - Axion Health
+  - Crestline Payments
+  - Veritas Data
+  - Bridgeway Logistics
+  - Stonehaven Capital
+  - Lumina SaaS
+  - Archway Systems
+  - Cascade Cloud
 
 admin_users:
-  - admin
-  - root
-  - administrator
-  - superuser
-  - sysadmin
+  - admin@northgate.io
+  - ops@meridian.io
+  - deploy@crestline.io
+  - devops@veritas.io
+  - platform@cascade.io
+  - sre@lumina.io
+  - infra@axion.io
+  - release@archway.io
 
 admin_passes:
-  - password123
-  - admin2024
-  - ChangeMe!
-  - Welcome@1
-  - P@ssw0rd
+  - Nk7$mRp2qL!9
+  - Bx3&vT8sYw@4
+  - Qj6#nH1uZe^5
+  - Wd9!kG4rPm@7
+  - Lp2^cF5tXs#3
+  - Rn8&jM3oKb!6
 
 email_domains:
-  - acme
-  - globex
-  - initech
-  - umbrella
+  - northgate
+  - meridian
+  - crestline
+  - veritas
+  - cascade
+  - lumina
+  - axion
+  - archway
+
+# JWT/session/API canaries are generated dynamically in Go from the
+# per-client ShadowProfile seed. They are complete HS256 JWTs / signed
+# session IDs / service-style keys, not static strings in this YAML.
