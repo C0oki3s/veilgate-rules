@@ -79,6 +79,7 @@ directory does not require reloading the rest.
 | `tls_fingerprints/` | — | All files |
 | `templates/` | — | All files (later file wins on same key) |
 | `learned/` | — | All files + `learned.yaml` root |
+| `decoy_paths.yaml` + `decoy_paths/` | — | All files; paths appended |
 
 ---
 
@@ -248,10 +249,14 @@ a new community file:
 touch rules/detector/config.yaml          # reload detector signals
 touch rules/ip_reputation/config.yaml     # reload IP reputation
 touch rules/vulnerabilities/core-triggers.yaml
+touch rules/decoy_paths.yaml              # reload decoy paths + well-known tarpit block
 ```
 
 - `learned/` is watched directly — no `touch` required.
 - `payloads/` requires a **process restart** to pick up new files.
+- `decoy_paths.yaml` (and any file in `decoy_paths/`) is hot-reloaded;
+  the updated list is immediately reflected in `/__veilgate/.well-known`
+  and picked up by SDKs within their 60-second discovery cache window.
 
 ---
 
