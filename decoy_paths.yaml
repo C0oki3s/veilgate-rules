@@ -1,0 +1,193 @@
+# decoy_paths.yaml — bait endpoints published via /__veilgate/.well-known
+#
+# The browser SDK reads the tarpit.paths block from .well-known and injects
+# these paths as DOM decoys (randomised subset per page load). Agents that
+# mine the SPA bundle or DOM discover realistic breadcrumbs; when they follow
+# one the proxy routes the request to the tarpit instead of the real upstream.
+#
+# Every path here should have a matching route in injection_strategy.yaml so
+# agents receive a convincing fake response, not a generic 404.
+#
+# Operator guide:
+#   - Add paths for services your stack actually uses — Vault, Stripe, etc.
+#   - Add paths for services you DON'T use to lure opportunistic scanners.
+#   - Paths are URL-matched by the tarpit router using injection_strategy.yaml
+#     rules; `service` is a label only and does not affect routing.
+#   - Drop extra files into decoy_paths/ to extend this list without editing
+#     the root file (same merge pattern as other rules subdirectories).
+
+paths:
+
+  # ---------------------------------------------------------------------------
+  # SSRF / cloud-metadata bait
+  # Agents probing for server-side request forgery entry points.
+  # ---------------------------------------------------------------------------
+  - path: "/api/v1/fetch"
+    service: "ssrf-bait"
+  - path: "/api/proxy"
+    service: "ssrf-bait"
+  - path: "/api/v1/ssrf-check"
+    service: "ssrf-bait"
+  - path: "/api/debug/cloud-metadata"
+    service: "aws-metadata"
+
+  # ---------------------------------------------------------------------------
+  # Secrets and config files
+  # High-value targets for automated credential harvesters.
+  # ---------------------------------------------------------------------------
+  - path: "/.env.local"
+    service: "secrets"
+  - path: "/.env.production"
+    service: "secrets"
+  - path: "/config/secrets.yml"
+    service: "secrets"
+  - path: "/config/master.key"
+    service: "rails-credentials"
+  - path: "/app/config/database.yml"
+    service: "rails-database"
+  - path: "/deploy/keys/id_rsa"
+    service: "ssh-key"
+
+  # ---------------------------------------------------------------------------
+  # Git / VCS artifacts
+  # Exposed source trees and pipeline configs leak secrets and architecture.
+  # ---------------------------------------------------------------------------
+  - path: "/.git/config"
+    service: "git"
+  - path: "/.git/HEAD"
+    service: "git"
+  - path: "/.github/workflows/deploy.yml"
+    service: "github-actions"
+  - path: "/bitbucket-pipelines.yml"
+    service: "bitbucket-ci"
+  - path: "/Jenkinsfile"
+    service: "jenkins-ci"
+
+  # ---------------------------------------------------------------------------
+  # Admin / debug panels
+  # Framework admin and dev-only pages that should never be public.
+  # ---------------------------------------------------------------------------
+  - path: "/api/internal/debug"
+    service: "debug-panel"
+  - path: "/api/internal/rpc"
+    service: "debug-panel"
+  - path: "/api/internal/profiler"
+    service: "debug-panel"
+  - path: "/prisma-studio"
+    service: "prisma"
+  - path: "/graphql"
+    service: "graphql"
+  - path: "/graphiql"
+    service: "graphql"
+  - path: "/telescope"
+    service: "laravel-telescope"
+  - path: "/horizon"
+    service: "laravel-horizon"
+  - path: "/django/admin/login/"
+    service: "django-admin"
+  - path: "/rails/info/properties"
+    service: "rails-info"
+
+  # ---------------------------------------------------------------------------
+  # OpenAPI / Swagger docs
+  # Schema docs expose full endpoint surface to automated scanners.
+  # ---------------------------------------------------------------------------
+  - path: "/api/docs/openapi.json"
+    service: "openapi"
+  - path: "/swagger-ui.html"
+    service: "swagger"
+  - path: "/swagger.json"
+    service: "swagger"
+  - path: "/api-docs"
+    service: "swagger"
+  - path: "/redoc"
+    service: "redoc"
+
+  # ---------------------------------------------------------------------------
+  # Spring Boot Actuator
+  # Exposes heap dumps, environment variables, and live config.
+  # ---------------------------------------------------------------------------
+  - path: "/actuator/env"
+    service: "spring-actuator"
+  - path: "/actuator/heapdump"
+    service: "spring-actuator"
+  - path: "/actuator/mappings"
+    service: "spring-actuator"
+  - path: "/actuator/loggers"
+    service: "spring-actuator"
+  - path: "/actuator/beans"
+    service: "spring-actuator"
+
+  # ---------------------------------------------------------------------------
+  # HashiCorp Vault and Consul
+  # Secrets engines and service-mesh config endpoints.
+  # ---------------------------------------------------------------------------
+  - path: "/v1/secret/data/prod"
+    service: "vault"
+  - path: "/v1/secret/data/app"
+    service: "vault"
+  - path: "/v1/auth/token/lookup-self"
+    service: "vault"
+  - path: "/v1/sys/mounts"
+    service: "vault"
+  - path: "/consul/v1/kv/"
+    service: "consul"
+  - path: "/v1/agent/self"
+    service: "consul"
+
+  # ---------------------------------------------------------------------------
+  # Kubernetes-style endpoints
+  # Agents probing for in-cluster k8s API or service-account tokens.
+  # ---------------------------------------------------------------------------
+  - path: "/api/v1/secrets"
+    service: "kubernetes"
+  - path: "/api/v1/pods"
+    service: "kubernetes"
+  - path: "/api/v1/configmaps"
+    service: "kubernetes"
+
+  # ---------------------------------------------------------------------------
+  # Database / search engines
+  # Elasticsearch and Kibana management APIs.
+  # ---------------------------------------------------------------------------
+  - path: "/_cat/indices"
+    service: "elasticsearch"
+  - path: "/_nodes/stats"
+    service: "elasticsearch"
+  - path: "/kibana/api/index_patterns"
+    service: "kibana"
+
+  # ---------------------------------------------------------------------------
+  # Observability / monitoring
+  # Grafana and Prometheus APIs expose live metrics and datasource configs.
+  # ---------------------------------------------------------------------------
+  - path: "/__grafana/api/datasources/proxy/1/query"
+    service: "grafana"
+  - path: "/grafana/api/org/users"
+    service: "grafana"
+  - path: "/prometheus/api/v1/targets"
+    service: "prometheus"
+
+  # ---------------------------------------------------------------------------
+  # Payment / OAuth
+  # Token endpoints and webhook test paths agents probe for live secrets.
+  # ---------------------------------------------------------------------------
+  - path: "/api/webhooks/stripe/test"
+    service: "stripe"
+  - path: "/api/billing/stripe-connect"
+    service: "stripe"
+  - path: "/oauth2/token"
+    service: "oauth2"
+  - path: "/.well-known/jwks.json"
+    service: "jwks"
+
+  # ---------------------------------------------------------------------------
+  # AI / ML service proxies
+  # Agents scanning for OpenAI-compatible endpoints and key-leaking proxies.
+  # ---------------------------------------------------------------------------
+  - path: "/api/ai/completions"
+    service: "openai-proxy"
+  - path: "/v1/models"
+    service: "openai-proxy"
+  - path: "/api/v1/llm/generate"
+    service: "llm-proxy"
