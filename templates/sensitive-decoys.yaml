@@ -1,0 +1,944 @@
+# Realistic deception templates — overrides and additions for high-value attack surfaces.
+#
+# These templates override the same-named entries in templates.yaml when keys collide
+# (later files win). New names are additive.
+#
+# Design principles:
+#  • SSRF responses mirror the actual AWS/GCP metadata service JSON format exactly.
+#  • SQL injection responses show MySQL / PostgreSQL native error format, with data
+#    leaking into error messages (error-based) or UNION rows (union-based).
+#  • Org-vertical templates (healthcare, ecommerce, education) carry realistic PII,
+#    PHI, and PCI fields that LLM agents look for and test against.
+#  • Internal chat / debug exports contain credentials shared in plaintext to extend
+#    agent dwell time once they reach the "insider data" stage.
+#
+# Available extra vars set per-request (in addition to standard profile vars):
+#   {{.Path}}   {{.Query}}   {{.Body}}
+# New helper functions added alongside this file:
+#   aws_sts_key_id seed   → ASIA + 16 Base32 (temporary STS access key ID)
+#   aws_sts_token seed    → 280-char base64 STS session token
+#   contains_str s sub    → case-insensitive substring test (returns bool)
+#   lower s               → lowercase a string
+
+templates:
+
+  # ── SSRF — AWS IMDSv1 credential response ─────────────────────────────────
+  # Overrides the generic api_ssrf_fetch. Shows the exact JSON returned by
+  # http://169.254.169.254/latest/meta-data/iam/security-credentials/<role>
+  # wrapped in the app's fetch-proxy envelope. Agents that validate the
+  # AccessKeyId format (ASIA prefix, 20 chars) and try to use the credentials
+  # will spend considerable time pursuing this rabbit hole.
+
+  api_ssrf_fetch:
+    status: 200
+    content_type: "application/json"
+    headers:
+      Server: "{{.Version}}"
+      X-Request-Id: "{{request_id .Seed}}"
+    body: |
+      {
+        "ok": true,
+        "url": "{{sanitize .Query}}",
+        "status": 200,
+        "contentType": "text/plain",
+        "durationMs": {{add 12 (rand_int 35 "ssrf_ms")}},
+        "responseHeaders": {
+          "Content-Type": "text/plain",
+          "x-aws-ec2-metadata-token-ttl-seconds": "21600",
+          "x-aws-requestid": "{{request_id (mul .Seed 7)}}"
+        },
+        "instanceMetadata": {
+          "instanceId": "i-0{{hex64 .Seed}}",
+          "region": "us-east-1",
+          "availabilityZone": "us-east-1b",
+          "instanceType": "t3.medium",
+          "accountId": "{{add 100000000000 (rand_int 900000000000 "acct")}}",
+          "iamRole": "{{.Slug}}-prod-instance-role"
+        },
+        "body": "{\"Code\":\"Success\",\"LastUpdated\":\"2026-05-24T09:15:23Z\",\"Type\":\"AWS-HMAC\",\"AccessKeyId\":\"{{aws_sts_key_id .Seed}}\",\"SecretAccessKey\":\"{{aws_secret (mul .Seed 3)}}\",\"Token\":\"{{aws_sts_token .Seed}}\",\"Expiration\":\"2026-05-24T{{add 15 (rand_int 6 "ssrf_exp")}}:{{add 10 (rand_int 50 "ssrf_min")}}:00Z\"}"
+      }
+
+  # ── SSRF — GCP metadata service token response ────────────────────────────
+  # Served when agents hit /computeMetadata/v1/ paths directly (see routes file).
+
+  api_ssrf_gcp_meta:
+    status: 200
+    content_type: "application/json"
+    headers:
+      Server: "Metadata-Flavor: Google"
+      Metadata-Flavor: "Google"
+      X-Request-Id: "{{request_id .Seed}}"
+    body: |
+      {
+        "ok": true,
+        "url": "{{sanitize .Query}}",
+        "status": 200,
+        "contentType": "application/json",
+        "durationMs": {{add 8 (rand_int 28 "gcp_ms")}},
+        "body": "{\"access_token\":\"ya29.{{jwt_secret .Seed}}{{hex64 (mul .Seed 3)}}\",\"expires_in\":3599,\"token_type\":\"Bearer\"}",
+        "projectMetadata": {
+          "projectId": "{{.Slug}}-prod-{{add 100000 (rand_int 900000 "proj")}}",
+          "projectNumber": "{{add 100000000000 (rand_int 900000000000 "projnum")}}",
+          "serviceAccount": "{{.Slug}}-sa@{{.Slug}}-prod-{{add 100000 (rand_int 900000 "gcp_proj")}}.iam.gserviceaccount.com"
+        }
+      }
+
+  # ── SQL injection — MySQL / PostgreSQL native error format ─────────────────
+  # Overrides sql_error. Uses {{if contains_str .Query "union"}} to show a
+  # UNION-based data dump (successful exfiltration simulation) vs. a raw
+  # MySQL syntax error that leaks version and query fragment.
+
+  sql_error:
+    status: 500
+    content_type: "application/json"
+    headers:
+      Server: "{{.Version}}"
+      X-Request-Id: "{{request_id .Seed}}"
+    body: |
+      {{if contains_str .Query "union"}}
+      {
+        "data": [
+          {
+            "id": {{add 1 (rand_int 8 "uid1")}},
+            "email": "alice@{{.Slug}}.com",
+            "name": "Alice Walker",
+            "role": "customer",
+            "created_at": "2024-09-15T14:23:00Z"
+          },
+          {
+            "id": {{add 100 (rand_int 50 "uid2")}},
+            "email": "{{.AdminUser}}",
+            "name": "Platform Admin",
+            "role": "admin",
+            "password_hash": "$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/AlewkV0/Sly4e1Gu",
+            "api_key": "{{api_key .Seed}}",
+            "mfa_backup_code": "{{add 100000 (rand_int 900000 "mfa")}}-{{add 100000 (rand_int 900000 "mfa2")}}"
+          },
+          {
+            "id": {{add 200 (rand_int 50 "uid3")}},
+            "email": "devops@{{.Slug}}.io",
+            "name": "DevOps Bot",
+            "role": "service",
+            "password_hash": "$2b$12$K9BzfkKqZXf7YdKpMGv8uufWvBXJflf3TLh8c1h.JGUhC1nGm/5HK",
+            "api_key": "{{api_key (mul .Seed 3)}}"
+          }
+        ],
+        "_meta": {
+          "rows_returned": 3,
+          "db": "{{.Slug}}_production",
+          "table": "users",
+          "injected_query": "{{sanitize .Query}}",
+          "executed_at": "2026-05-24T10:15:23Z",
+          "duration_ms": {{add 2 (rand_int 8 "sql_dur")}}
+        }
+      }
+      {{else if contains_str .Query "extractvalue"}}
+      {
+        "error": {
+          "code": 1105,
+          "sqlstate": "HY000",
+          "message": "XPATH syntax error: '~{{add 5 (rand_int 3 "major")}}.{{add 7 (rand_int 2 "minor")}}.{{add 30 (rand_int 15 "patch")}}-MySQL Community Server~{{.AdminUser}}~{{.Slug}}_production'"
+        }
+      }
+      {{else if contains_str .Query "sleep"}}
+      {
+        "error": {
+          "code": 2013,
+          "sqlstate": "HY000",
+          "message": "Lost connection to MySQL server during query"
+        },
+        "requestId": "{{request_id .Seed}}"
+      }
+      {{else}}
+      {
+        "error": {
+          "code": 1064,
+          "sqlstate": "42000",
+          "errno": 1064,
+          "message": "You have an error in your SQL syntax; check the manual that corresponds to your MySQL {{add 8 (rand_int 1 "mver")}}.0.{{add 30 (rand_int 15 "mrev")}} server version for the right syntax to use near '{{sanitize .Query}}' at line 1",
+          "query": "SELECT * FROM users WHERE id = '{{sanitize .Query}}'",
+          "db": "{{.Slug}}_production",
+          "table": "users"
+        },
+        "requestId": "{{request_id .Seed}}"
+      }
+      {{end}}
+
+  # ── SQL injection — PostgreSQL UNION dump ─────────────────────────────────
+  # Served by a dedicated route for PostgreSQL-style apps when UNION is detected.
+
+  sqli_postgres_union:
+    status: 200
+    content_type: "application/json"
+    headers:
+      Server: "{{.Version}}"
+      X-Request-Id: "{{request_id .Seed}}"
+    body: |
+      {
+        "rows": [
+          {"usesysid": 10, "usename": "postgres", "usecreatedb": true, "usesuper": true, "passwd": "md5{{hex64 .Seed}}"},
+          {"usesysid": {{add 1000 (rand_int 9000 "pg_uid")}}, "usename": "{{.Slug}}_app", "usecreatedb": false, "usesuper": false, "passwd": "md5{{hex64 (mul .Seed 3)}}"},
+          {"usesysid": {{add 2000 (rand_int 8000 "pg_uid2")}}, "usename": "replication_user", "usecreatedb": false, "usesuper": false, "passwd": "md5{{hex64 (mul .Seed 7)}}"}
+        ],
+        "command": "SELECT",
+        "rowCount": 3,
+        "_notice": "query executed with elevated privileges",
+        "_db": "{{.Slug}}_production",
+        "_query": "{{sanitize .Query}}"
+      }
+
+  # ── SQL injection — Laravel Ignition error (MySQL + env context) ──────────
+  # Override for laravel_ignition to show the injection payload in the SQL
+  # and leak real-looking DB credentials in the context block.
+
+  laravel_ignition:
+    status: 500
+    content_type: "text/html; charset=utf-8"
+    headers:
+      Server: "Apache/2.4.57"
+      X-Powered-By: "PHP/8.2.0"
+    body: |
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+      <meta charset="utf-8">
+      <title>QueryException — {{.Company}}</title>
+      <style>
+      *{margin:0;padding:0;box-sizing:border-box}
+      body{font-family:ui-monospace,"SF Mono","Fira Code",monospace;background:#1a1a2e;color:#e2e8f0;font-size:13px}
+      .header{background:#e02424;padding:20px 32px}
+      .header h1{font-size:18px;font-weight:600;color:#fff}
+      .header p{font-size:13px;color:#fecaca;margin-top:4px;word-break:break-all}
+      .body{padding:32px}
+      .section{background:#111827;border:1px solid #1f2937;border-radius:6px;padding:16px;margin-top:24px}
+      .section h2{font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px}
+      .row{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #1f2937}
+      .key{color:#93c5fd}
+      .val{color:#86efac;word-break:break-all;max-width:70%;text-align:right}
+      .val.red{color:#f87171}
+      .stack{margin-top:24px;font-size:12px;color:#6b7280}
+      .frame{padding:6px 0;border-bottom:1px solid #1f2937}
+      .file{color:#f472b6}
+      .line{color:#fbbf24}
+      .sql-block{background:#0f172a;border:1px solid #334155;border-radius:4px;padding:12px;margin-top:8px;font-size:12px;color:#94a3b8;word-break:break-all}
+      .sql-block em{color:#f87171;font-style:normal}
+      </style>
+      </head>
+      <body>
+      <div class="header">
+        <h1>Illuminate\Database\QueryException</h1>
+        <p>SQLSTATE[42000]: Syntax error or access violation: 1064 You have an error in your SQL syntax; check the manual for MySQL {{add 8 (rand_int 1 "lmver")}}.0.{{add 30 (rand_int 15 "lmrev")}} near '<em>{{sanitize .Query}}</em>' at line 1</p>
+      </div>
+      <div class="body">
+        <div class="sql-block">
+          SELECT * FROM `users` WHERE `email` = '<em>{{sanitize .Query}}</em>' LIMIT 1
+        </div>
+        <div class="section">
+          <h2>Application Context</h2>
+          <div class="row"><span class="key">APP_ENV</span><span class="val">production</span></div>
+          <div class="row"><span class="key">DB_CONNECTION</span><span class="val">mysql</span></div>
+          <div class="row"><span class="key">DB_HOST</span><span class="val">db-primary.{{.Slug}}.internal</span></div>
+          <div class="row"><span class="key">DB_PORT</span><span class="val">3306</span></div>
+          <div class="row"><span class="key">DB_DATABASE</span><span class="val">{{.Slug}}_production</span></div>
+          <div class="row"><span class="key">DB_USERNAME</span><span class="val">{{.Slug}}_app</span></div>
+          <div class="row"><span class="key">DB_PASSWORD</span><span class="val red">{{.AdminPass}}</span></div>
+          <div class="row"><span class="key">APP_KEY</span><span class="val">base64:{{jwt_secret .Seed}}</span></div>
+          <div class="row"><span class="key">REDIS_PASSWORD</span><span class="val red">{{redis_pass .Seed}}</span></div>
+          <div class="row"><span class="key">STRIPE_SECRET_KEY</span><span class="val red">{{api_key (mul .Seed 7)}}</span></div>
+        </div>
+        <div class="stack">
+          <div class="frame"><span class="file">vendor/laravel/framework/src/Illuminate/Database/Connection.php</span>:<span class="line">760</span></div>
+          <div class="frame"><span class="file">vendor/laravel/framework/src/Illuminate/Database/Connection.php</span>:<span class="line">720</span></div>
+          <div class="frame"><span class="file">app/Http/Controllers/Auth/LoginController.php</span>:<span class="line">{{add 38 (rand_int 10 "lline")}}</span></div>
+          <div class="frame"><span class="file">app/Models/User.php</span>:<span class="line">{{add 22 (rand_int 8 "uline")}}</span></div>
+        </div>
+      </div>
+      </body>
+      </html>
+
+  # ── Internal debug panel — full env + live secrets ─────────────────────────
+  # Returned for /api/internal/debug and similar paths. More detailed than the
+  # generic Prisma 500; shows real-looking env vars and internal service state.
+
+  api_internal_debug_full:
+    status: 200
+    content_type: "application/json"
+    headers:
+      Server: "{{.Version}}"
+      X-Request-Id: "{{request_id .Seed}}"
+      X-Internal: "debug-mode"
+    body: |
+      {
+        "status": "ok",
+        "env": "production",
+        "build": "{{request_id (mul .Seed 5)}}",
+        "node_env": "production",
+        "config": {
+          "database_url": "postgresql://{{.Slug}}_app:{{.AdminPass}}@db-primary.{{.Slug}}.internal:5432/{{.Slug}}_prod",
+          "redis_url": "redis://:{{redis_pass .Seed}}@cache.{{.Slug}}.internal:6379/0",
+          "jwt_secret": "{{jwt_secret (mul .Seed 19)}}",
+          "jwt_refresh_secret": "{{jwt_secret (mul .Seed 29)}}",
+          "stripe_secret_key": "{{api_key (mul .Seed 7)}}",
+          "sendgrid_key": "{{sendgrid_key (mul .Seed 11)}}",
+          "aws_access_key_id": "{{aws_key_id (mul .Seed 17)}}",
+          "aws_secret_access_key": "{{aws_secret (mul .Seed 37)}}",
+          "s3_bucket": "{{.Slug}}-prod-uploads",
+          "admin_email": "{{.AdminUser}}",
+          "admin_password_hash": "$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/AlewkV0/Sly4e1Gu"
+        },
+        "services": {
+          "db": {"host": "db-primary.{{.Slug}}.internal", "port": 5432, "status": "connected", "pool_size": 20, "active": {{add 3 (rand_int 12 "dba")}}},
+          "redis": {"host": "cache.{{.Slug}}.internal", "port": 6379, "status": "connected", "memory_used_mb": {{add 128 (rand_int 512 "rm")}}},
+          "s3": {"bucket": "{{.Slug}}-prod-uploads", "region": "us-east-1", "status": "reachable"},
+          "stripe": {"status": "live", "api_key_prefix": "sk_live_"}
+        },
+        "session": {
+          "active_sessions": {{add 14 (rand_int 80 "sess")}},
+          "admin_session": "{{session_id .Seed}}",
+          "admin_jwt": "{{jwt_admin .AdminUser .Seed}}"
+        },
+        "internal_endpoints": [
+          "/api/internal/debug",
+          "/api/internal/rpc",
+          "/api/internal/flush-cache",
+          "/api/internal/admin-reset",
+          "/api/admin/users-export",
+          "/api/admin/orders",
+          "/api/payment-vault",
+          "/api/internal/chat-export"
+        ]
+      }
+
+  # ── Ecommerce — customer PII + PCI card data ──────────────────────────────
+  # Real-looking customer records with full name, address, DOB, and payment
+  # method including stored CVV (PCI violation — signals misconfigured vault).
+  # SSNs use the 000 area code (always invalid) to avoid real number generation.
+
+  api_ecommerce_customers:
+    status: 200
+    content_type: "application/json"
+    headers:
+      Server: "{{.Version}}"
+      X-Request-Id: "{{request_id .Seed}}"
+    body: |
+      {
+        "data": [
+          {
+            "id": "cus_{{slug_id "c" .Seed}}",
+            "email": "sarah.johnson@gmail.com",
+            "first_name": "Sarah",
+            "last_name": "Johnson",
+            "phone": "+1-312-555-0142",
+            "dob": "1988-04-12",
+            "ssn_last4": "7891",
+            "address": {
+              "line1": "742 Evergreen Terrace",
+              "city": "Springfield",
+              "state": "IL",
+              "zip": "62701",
+              "country": "US"
+            },
+            "payment_method": {
+              "type": "visa",
+              "last4": "4242",
+              "exp_month": 8,
+              "exp_year": 2028,
+              "cvv": "{{add 100 (rand_int 900 "cvv1")}}",
+              "pan": "4111111111114242",
+              "cardholder_name": "SARAH JOHNSON",
+              "billing_zip": "62701"
+            },
+            "lifetime_value": {{add 230 (rand_int 4700 "ltv1")}}.{{add 10 (rand_int 89 "ltvc1")}},
+            "created_at": "2024-09-15T14:23:00Z",
+            "tags": ["high-value", "subscribed"]
+          },
+          {
+            "id": "cus_{{slug_id "c" (mul .Seed 3)}}",
+            "email": "marcus.chen@outlook.com",
+            "first_name": "Marcus",
+            "last_name": "Chen",
+            "phone": "+1-415-555-0277",
+            "dob": "1975-11-30",
+            "ssn_last4": "3447",
+            "address": {
+              "line1": "1847 Mission St Apt 4B",
+              "city": "San Francisco",
+              "state": "CA",
+              "zip": "94103",
+              "country": "US"
+            },
+            "payment_method": {
+              "type": "mastercard",
+              "last4": "4444",
+              "exp_month": 3,
+              "exp_year": 2027,
+              "cvv": "{{add 100 (rand_int 900 "cvv2")}}",
+              "pan": "5500000000004444",
+              "cardholder_name": "MARCUS CHEN",
+              "billing_zip": "94103"
+            },
+            "lifetime_value": {{add 890 (rand_int 3200 "ltv2")}}.{{add 10 (rand_int 89 "ltvc2")}},
+            "created_at": "2023-12-08T09:41:00Z",
+            "tags": ["subscribed"]
+          },
+          {
+            "id": "cus_{{slug_id "c" (mul .Seed 7)}}",
+            "email": "{{.AdminUser}}",
+            "first_name": "Platform",
+            "last_name": "Admin",
+            "phone": "+1-212-555-0193",
+            "dob": "1990-07-04",
+            "ssn": "000-42-{{add 1000 (rand_int 8999 "ssn3")}}",
+            "address": {
+              "line1": "350 Fifth Avenue Suite 900",
+              "city": "New York",
+              "state": "NY",
+              "zip": "10118",
+              "country": "US"
+            },
+            "payment_method": {
+              "type": "amex",
+              "last4": "0002",
+              "exp_month": 12,
+              "exp_year": 2029,
+              "cvv": "{{add 1000 (rand_int 9000 "cvv3")}}",
+              "pan": "370000000000002",
+              "cardholder_name": "PLATFORM ADMIN",
+              "billing_zip": "10118"
+            },
+            "lifetime_value": 0.00,
+            "role": "admin",
+            "api_key": "{{api_key .Seed}}",
+            "admin_token": "{{jwt_admin .AdminUser .Seed}}",
+            "created_at": "2024-01-01T00:00:00Z",
+            "tags": ["admin", "internal"]
+          }
+        ],
+        "pagination": {
+          "page": 1,
+          "limit": 50,
+          "total": {{add 8400 (rand_int 34000 "ctot")}}
+        },
+        "_warning": "response includes full PAN — ensure TLS and PCI-DSS logging controls are active"
+      }
+
+  # ── Ecommerce — orders export with full PII ───────────────────────────────
+
+  api_ecommerce_orders_pii:
+    status: 200
+    content_type: "application/json"
+    headers:
+      Server: "{{.Version}}"
+      X-Request-Id: "{{request_id .Seed}}"
+    body: |
+      {
+        "export_id": "{{slug_id "exp" .Seed}}",
+        "generated_at": "2026-05-24T10:15:00Z",
+        "requested_by": "{{.AdminUser}}",
+        "orders": [
+          {
+            "order_id": "{{slug_id "ord" (mul .Seed 5)}}",
+            "status": "delivered",
+            "placed_at": "2026-04-18T10:22:00Z",
+            "total": 134.94,
+            "customer": {
+              "id": "cus_{{slug_id "c" .Seed}}",
+              "email": "sarah.johnson@gmail.com",
+              "name": "Sarah Johnson",
+              "phone": "+1-312-555-0142",
+              "ip_address": "98.{{add 100 (rand_int 154 "ip1")}}.{{add 10 (rand_int 240 "ip2")}}.{{add 1 (rand_int 253 "ip3")}}"
+            },
+            "shipping_address": {
+              "line1": "742 Evergreen Terrace",
+              "city": "Springfield",
+              "state": "IL",
+              "zip": "62701"
+            },
+            "payment": {
+              "method": "visa",
+              "last4": "4242",
+              "auth_code": "AUTH{{add 100000 (rand_int 900000 "auth1")}}",
+              "charged": 134.94
+            },
+            "items": [
+              {"sku": "WH-1001", "name": "Wireless Headphones", "qty": 1, "price": 89.99},
+              {"sku": "USB-3001", "name": "USB-C Hub 7-in-1", "qty": 1, "price": 44.95}
+            ]
+          },
+          {
+            "order_id": "{{slug_id "ord" (mul .Seed 17)}}",
+            "status": "processing",
+            "placed_at": "2026-05-12T15:47:00Z",
+            "total": 349.00,
+            "customer": {
+              "id": "cus_{{slug_id "c" (mul .Seed 3)}}",
+              "email": "marcus.chen@outlook.com",
+              "name": "Marcus Chen",
+              "phone": "+1-415-555-0277",
+              "ip_address": "173.{{add 100 (rand_int 154 "ip4")}}.{{add 10 (rand_int 240 "ip5")}}.{{add 1 (rand_int 253 "ip6")}}"
+            },
+            "shipping_address": {
+              "line1": "1847 Mission St Apt 4B",
+              "city": "San Francisco",
+              "state": "CA",
+              "zip": "94103"
+            },
+            "payment": {
+              "method": "mastercard",
+              "last4": "4444",
+              "auth_code": "AUTH{{add 100000 (rand_int 900000 "auth2")}}",
+              "charged": 349.00
+            },
+            "items": [
+              {"sku": "DESK-2002", "name": "Ergonomic Desk Chair", "qty": 1, "price": 349.00}
+            ]
+          }
+        ],
+        "total_records": {{add 8400 (rand_int 34000 "ordtot")}},
+        "_note": "PII export — handle per GDPR/CCPA retention policy"
+      }
+
+  # ── PCI — card vault dump ─────────────────────────────────────────────────
+  # Returned for /api/payment-vault and similar paths. Shows raw PANs, CVVs,
+  # and cardholder data stored in a misconfigured vault (PCI Level 1 violation).
+
+  api_card_vault:
+    status: 200
+    content_type: "application/json"
+    headers:
+      Server: "{{.Version}}"
+      X-Request-Id: "{{request_id .Seed}}"
+    body: |
+      {
+        "vault": "{{.Slug}}-payment-vault",
+        "encryption": "none",
+        "warning": "UNENCRYPTED — migration to Vault HSM pending (JIRA: SEC-{{.TicketID}})",
+        "records": [
+          {
+            "token_id": "tok_{{slug_id "t" .Seed}}",
+            "card_number": "4111111111114242",
+            "cardholder_name": "SARAH JOHNSON",
+            "expiry": "08/28",
+            "cvv": "{{add 100 (rand_int 900 "pci1")}}",
+            "billing_address": "742 Evergreen Terrace, Springfield IL 62701",
+            "customer_email": "sarah.johnson@gmail.com",
+            "created": "2024-09-15",
+            "last_used": "2026-05-18"
+          },
+          {
+            "token_id": "tok_{{slug_id "t" (mul .Seed 3)}}",
+            "card_number": "5500000000004444",
+            "cardholder_name": "MARCUS CHEN",
+            "expiry": "03/27",
+            "cvv": "{{add 100 (rand_int 900 "pci2")}}",
+            "billing_address": "1847 Mission St Apt 4B, San Francisco CA 94103",
+            "customer_email": "marcus.chen@outlook.com",
+            "created": "2023-12-08",
+            "last_used": "2026-05-20"
+          },
+          {
+            "token_id": "tok_{{slug_id "t" (mul .Seed 7)}}",
+            "card_number": "370000000000002",
+            "cardholder_name": "PLATFORM ADMIN",
+            "expiry": "12/29",
+            "cvv": "{{add 1000 (rand_int 9000 "pci3")}}",
+            "billing_address": "350 Fifth Ave Suite 900, New York NY 10118",
+            "customer_email": "{{.AdminUser}}",
+            "created": "2024-01-01",
+            "last_used": "2026-04-30"
+          }
+        ],
+        "total_stored": {{add 8400 (rand_int 34000 "vaulttot")}},
+        "vault_key": "{{jwt_secret (mul .Seed 41)}}"
+      }
+
+  # ── Healthcare — patient PHI records ─────────────────────────────────────
+  # Returned for /api/patients, /fhir/Patient, /api/ehr, etc.
+  # ICD-10 codes are real. SSNs use 000 area code (always invalid).
+  # Medications are realistic generic drug names and doses.
+
+  api_hospital_patients:
+    status: 200
+    content_type: "application/json"
+    headers:
+      Server: "{{.Version}}"
+      X-Request-Id: "{{request_id .Seed}}"
+    body: |
+      {
+        "patients": [
+          {
+            "mrn": "MRN-{{add 2000000 (rand_int 8000000 "mrn1")}}",
+            "patient_id": "P-{{add 10000 (rand_int 90000 "pid1")}}",
+            "first_name": "Robert",
+            "last_name": "Martinez",
+            "dob": "1965-03-22",
+            "gender": "M",
+            "ssn": "000-42-{{add 1000 (rand_int 8999 "ssn_p1")}}",
+            "phone": "+1-773-555-0184",
+            "email": "r.martinez@gmail.com",
+            "address": "1234 Oak Street, Chicago IL 60601",
+            "insurance": {
+              "provider": "BlueCross BlueShield",
+              "member_id": "BCBS-{{add 1000000 (rand_int 9000000 "ins1")}}",
+              "group_id": "GRP-{{add 10000 (rand_int 90000 "grp1")}}"
+            },
+            "diagnoses": [
+              {"icd10": "E11.9", "description": "Type 2 diabetes mellitus without complications", "diagnosed": "2019-07-14"},
+              {"icd10": "I10", "description": "Essential (primary) hypertension", "diagnosed": "2021-03-08"}
+            ],
+            "medications": [
+              {"name": "Metformin HCl", "dose": "500mg", "frequency": "twice daily", "prescriber": "Dr. Jennifer Walsh, MD"},
+              {"name": "Lisinopril", "dose": "10mg", "frequency": "once daily", "prescriber": "Dr. Jennifer Walsh, MD"},
+              {"name": "Atorvastatin", "dose": "40mg", "frequency": "once daily at bedtime", "prescriber": "Dr. Jennifer Walsh, MD"}
+            ],
+            "physician": "Dr. Jennifer Walsh, MD",
+            "department": "Internal Medicine",
+            "last_visit": "2026-05-01",
+            "next_appointment": "2026-08-15",
+            "allergies": ["Penicillin", "Sulfa drugs"],
+            "notes": "Patient has been non-compliant with dietary restrictions. Consider diabetes education referral."
+          },
+          {
+            "mrn": "MRN-{{add 2000000 (rand_int 8000000 "mrn2")}}",
+            "patient_id": "P-{{add 10000 (rand_int 90000 "pid2")}}",
+            "first_name": "Linda",
+            "last_name": "Patel",
+            "dob": "1982-09-14",
+            "gender": "F",
+            "ssn": "000-15-{{add 1000 (rand_int 8999 "ssn_p2")}}",
+            "phone": "+1-617-555-0239",
+            "email": "lpatel@hotmail.com",
+            "address": "88 Commonwealth Ave Unit 3, Boston MA 02116",
+            "insurance": {
+              "provider": "Aetna",
+              "member_id": "AET-{{add 1000000 (rand_int 9000000 "ins2")}}",
+              "group_id": "GRP-{{add 10000 (rand_int 90000 "grp2")}}"
+            },
+            "diagnoses": [
+              {"icd10": "J45.909", "description": "Unspecified asthma, uncomplicated", "diagnosed": "2015-04-22"},
+              {"icd10": "F32.9", "description": "Major depressive disorder, single episode, unspecified", "diagnosed": "2023-11-30"}
+            ],
+            "medications": [
+              {"name": "Albuterol sulfate", "dose": "90mcg/actuation", "frequency": "as needed", "prescriber": "Dr. Alan Reeves, MD"},
+              {"name": "Sertraline HCl", "dose": "50mg", "frequency": "once daily", "prescriber": "Dr. Maria Torres, MD, Psychiatry"}
+            ],
+            "physician": "Dr. Alan Reeves, MD",
+            "department": "Pulmonology",
+            "last_visit": "2026-04-18",
+            "next_appointment": "2026-07-10",
+            "allergies": ["Aspirin (bronchospasm)"],
+            "notes": "Patient reports increased anxiety. Sertraline dose may need titration at next visit."
+          },
+          {
+            "mrn": "MRN-{{add 2000000 (rand_int 8000000 "mrn3")}}",
+            "patient_id": "P-{{add 10000 (rand_int 90000 "pid3")}}",
+            "first_name": "James",
+            "last_name": "Okafor",
+            "dob": "1958-12-05",
+            "gender": "M",
+            "ssn": "000-73-{{add 1000 (rand_int 8999 "ssn_p3")}}",
+            "phone": "+1-404-555-0315",
+            "email": "james.okafor@yahoo.com",
+            "address": "3302 Peachtree Rd NE, Atlanta GA 30326",
+            "insurance": {
+              "provider": "United Healthcare",
+              "member_id": "UHC-{{add 1000000 (rand_int 9000000 "ins3")}}",
+              "group_id": "GRP-{{add 10000 (rand_int 90000 "grp3")}}"
+            },
+            "diagnoses": [
+              {"icd10": "C34.10", "description": "Malignant neoplasm of upper lobe, bronchus or lung, unspecified side", "diagnosed": "2025-09-12"},
+              {"icd10": "Z87.891", "description": "Personal history of nicotine dependence", "diagnosed": "2020-01-15"}
+            ],
+            "medications": [
+              {"name": "Pembrolizumab (Keytruda)", "dose": "200mg IV", "frequency": "every 3 weeks", "prescriber": "Dr. Samuel Grant, MD, Oncology"},
+              {"name": "Ondansetron", "dose": "8mg", "frequency": "as needed for nausea", "prescriber": "Dr. Samuel Grant, MD, Oncology"}
+            ],
+            "physician": "Dr. Samuel Grant, MD",
+            "department": "Oncology",
+            "last_visit": "2026-05-14",
+            "next_appointment": "2026-06-04",
+            "allergies": ["Iodine contrast"],
+            "notes": "Cycle 8 of pembrolizumab. CT shows partial response. Discuss maintenance options at next visit.",
+            "trial_enrollment": "NCT0{{add 4000000 (rand_int 5000000 "trial")}}"
+          }
+        ],
+        "total": {{add 2800 (rand_int 12000 "ptot")}},
+        "facility": "{{.Company}} Medical Center",
+        "export_authorized_by": "{{.AdminUser}}",
+        "exported_at": "2026-05-24T10:15:00Z",
+        "_classification": "PHI — HIPAA restricted — authorized access only"
+      }
+
+  # ── Healthcare — prescription history ────────────────────────────────────
+
+  api_hospital_prescriptions:
+    status: 200
+    content_type: "application/json"
+    headers:
+      Server: "{{.Version}}"
+      X-Request-Id: "{{request_id .Seed}}"
+    body: |
+      {
+        "prescriptions": [
+          {
+            "rx_id": "RX-{{add 1000000 (rand_int 9000000 "rx1")}}",
+            "patient_mrn": "MRN-{{add 2000000 (rand_int 8000000 "mrn_rx1")}}",
+            "patient_name": "Robert Martinez",
+            "dob": "1965-03-22",
+            "drug_name": "Metformin HCl",
+            "ndc": "00093-{{add 1000 (rand_int 8999 "ndc1")}}",
+            "quantity": 60,
+            "days_supply": 30,
+            "refills_remaining": 5,
+            "controlled_substance": false,
+            "prescriber_dea": "BW{{add 1000000 (rand_int 9000000 "dea1")}}",
+            "prescriber": "Dr. Jennifer Walsh",
+            "pharmacy": "CVS #{{add 1000 (rand_int 9000 "pharm1")}}",
+            "filled_at": "2026-05-03T11:30:00Z",
+            "insurance_paid": 12.40,
+            "patient_copay": 5.00
+          },
+          {
+            "rx_id": "RX-{{add 1000000 (rand_int 9000000 "rx2")}}",
+            "patient_mrn": "MRN-{{add 2000000 (rand_int 8000000 "mrn_rx2")}}",
+            "patient_name": "Linda Patel",
+            "dob": "1982-09-14",
+            "drug_name": "Sertraline HCl",
+            "ndc": "00093-{{add 1000 (rand_int 8999 "ndc2")}}",
+            "quantity": 30,
+            "days_supply": 30,
+            "refills_remaining": 2,
+            "controlled_substance": false,
+            "prescriber_dea": "RT{{add 1000000 (rand_int 9000000 "dea2")}}",
+            "prescriber": "Dr. Maria Torres",
+            "pharmacy": "Walgreens #{{add 1000 (rand_int 9000 "pharm2")}}",
+            "filled_at": "2026-04-20T14:45:00Z",
+            "insurance_paid": 8.00,
+            "patient_copay": 10.00
+          }
+        ],
+        "total": {{add 6000 (rand_int 40000 "rxtot")}},
+        "_classification": "PHI — HIPAA 45 CFR §164.530 — minimum necessary standard applies"
+      }
+
+  # ── Education — student PII + academic records ───────────────────────────
+  # Returned for /api/students, /api/academic-records, /api/enrollment, etc.
+  # Includes FERPA-protected academic records, financial aid amounts, and SSNs.
+
+  api_education_students:
+    status: 200
+    content_type: "application/json"
+    headers:
+      Server: "{{.Version}}"
+      X-Request-Id: "{{request_id .Seed}}"
+    body: |
+      {
+        "students": [
+          {
+            "student_id": "STU-{{add 100000 (rand_int 900000 "stu1")}}",
+            "first_name": "Emma",
+            "last_name": "Rodriguez",
+            "email": "emma.rodriguez@{{.Slug}}.edu",
+            "personal_email": "emma.r1999@gmail.com",
+            "dob": "1999-07-22",
+            "ssn": "000-55-{{add 1000 (rand_int 8999 "ssn_e1")}}",
+            "phone": "+1-708-555-0162",
+            "address": "4420 N Sheridan Rd Apt 2, Chicago IL 60640",
+            "enrollment": {
+              "program": "B.S. Computer Science",
+              "year": 3,
+              "credits_completed": 84,
+              "credits_required": 128,
+              "gpa": 3.72,
+              "status": "active",
+              "advisor": "Prof. David Kim"
+            },
+            "financial_aid": {
+              "pell_grant": 6895.00,
+              "institutional_grant": 18500.00,
+              "subsidized_loan": 5500.00,
+              "unsubsidized_loan": 2000.00,
+              "work_study": 2500.00,
+              "total_aid": 35395.00,
+              "expected_family_contribution": 4200.00
+            },
+            "grades": [
+              {"course": "CS301 Algorithms", "credits": 3, "grade": "A", "term": "2026-Spring"},
+              {"course": "CS315 Database Systems", "credits": 3, "grade": "A-", "term": "2026-Spring"},
+              {"course": "MATH250 Statistics", "credits": 3, "grade": "B+", "term": "2026-Spring"}
+            ],
+            "disciplinary_record": [],
+            "disability_accommodations": ["extended test time"]
+          },
+          {
+            "student_id": "STU-{{add 100000 (rand_int 900000 "stu2")}}",
+            "first_name": "Tyler",
+            "last_name": "Washington",
+            "email": "t.washington@{{.Slug}}.edu",
+            "personal_email": "tyler.wash@hotmail.com",
+            "dob": "2001-02-14",
+            "ssn": "000-38-{{add 1000 (rand_int 8999 "ssn_e2")}}",
+            "phone": "+1-614-555-0287",
+            "address": "815 W Campus Dr Apt 12, Columbus OH 43210",
+            "enrollment": {
+              "program": "B.A. Business Administration",
+              "year": 2,
+              "credits_completed": 46,
+              "credits_required": 120,
+              "gpa": 2.91,
+              "status": "active",
+              "advisor": "Prof. Rachel Moore"
+            },
+            "financial_aid": {
+              "pell_grant": 6895.00,
+              "institutional_grant": 9000.00,
+              "subsidized_loan": 4500.00,
+              "unsubsidized_loan": 2000.00,
+              "work_study": 0.00,
+              "total_aid": 22395.00,
+              "expected_family_contribution": 0.00
+            },
+            "grades": [
+              {"course": "BUS201 Marketing", "credits": 3, "grade": "C+", "term": "2026-Spring"},
+              {"course": "ECON200 Micro", "credits": 3, "grade": "B", "term": "2026-Spring"}
+            ],
+            "disciplinary_record": [
+              {"incident": "academic_integrity", "date": "2025-11-12", "outcome": "written_warning", "status": "resolved"}
+            ],
+            "disability_accommodations": []
+          }
+        ],
+        "total": {{add 4200 (rand_int 22000 "stutot")}},
+        "institution": "{{.Company}} University",
+        "export_authorized_by": "{{.AdminUser}}",
+        "exported_at": "2026-05-24T10:15:00Z",
+        "_classification": "FERPA protected — authorized staff only"
+      }
+
+  # ── Internal — engineering Slack chat export ─────────────────────────────
+  # Returned for /api/internal/chat-export, /debug/messages, etc.
+  # Shows realistic internal conversation with credentials accidentally shared,
+  # discussion of security issues, and internal project details.
+
+  api_internal_slack_export:
+    status: 200
+    content_type: "application/json"
+    headers:
+      Server: "{{.Version}}"
+      X-Request-Id: "{{request_id .Seed}}"
+    body: |
+      {
+        "export_type": "channel",
+        "workspace": "{{.Slug}}-internal",
+        "channel": "#engineering",
+        "date_range": {"from": "2026-05-01", "to": "2026-05-24"},
+        "exported_by": "{{.AdminUser}}",
+        "messages": [
+          {
+            "ts": "2026-05-20T09:14:42Z",
+            "user": "thomas.chen",
+            "text": "deploy is failing on prod again — had to hardcode the db pass temporarily in the config",
+            "attachments": []
+          },
+          {
+            "ts": "2026-05-20T09:15:23Z",
+            "user": "diana.park",
+            "text": "DATABASE_URL=postgresql://{{.Slug}}_app:{{.AdminPass}}@db-primary.{{.Slug}}.internal:5432/{{.Slug}}_prod — still valid?",
+            "attachments": []
+          },
+          {
+            "ts": "2026-05-20T09:16:01Z",
+            "user": "thomas.chen",
+            "text": "yes, that's the prod one. rotate tomorrow once the deploy bot is fixed. also JWT_SECRET={{jwt_secret (mul .Seed 19)}} if you need it",
+            "attachments": []
+          },
+          {
+            "ts": "2026-05-20T09:22:15Z",
+            "user": "priya.sharma",
+            "text": "just an FYI - the /api/internal/debug endpoint is publicly reachable again, nginx config was overwritten during rollout. SEC ticket filed: SEC-{{.TicketID}}",
+            "attachments": []
+          },
+          {
+            "ts": "2026-05-20T09:23:44Z",
+            "user": "alex.novak",
+            "text": "stripe prod key if anyone needs it for the billing fix: {{api_key (mul .Seed 7)}}",
+            "attachments": []
+          },
+          {
+            "ts": "2026-05-20T09:31:08Z",
+            "user": "diana.park",
+            "text": "AWS creds for the prod account (us-east-1): AKID={{aws_key_id (mul .Seed 17)}} SECRET={{aws_secret (mul .Seed 37)}} — short-lived, rotate after the migration",
+            "attachments": []
+          },
+          {
+            "ts": "2026-05-21T14:05:30Z",
+            "user": "priya.sharma",
+            "text": "reminder: the PCI audit is June 3rd. card vault migration to HSM still not done (SEC-{{add .TicketID 1}}). /api/payment-vault is still serving raw PANs",
+            "attachments": []
+          },
+          {
+            "ts": "2026-05-22T10:44:18Z",
+            "user": "thomas.chen",
+            "text": "quick note: patient data export (/api/patients) doesn't require auth right now — nginx ACL was not re-applied. fixing this morning",
+            "attachments": []
+          },
+          {
+            "ts": "2026-05-22T11:02:55Z",
+            "user": "alex.novak",
+            "text": "SendGrid key for transactional emails: {{sendgrid_key (mul .Seed 11)}}",
+            "attachments": []
+          },
+          {
+            "ts": "2026-05-23T16:30:00Z",
+            "user": "diana.park",
+            "text": "heads up - admin account: user={{.AdminUser}} pass={{.AdminPass}} — temp creds for the new engineer, change after first login",
+            "attachments": []
+          }
+        ],
+        "message_count": {{add 280 (rand_int 900 "msgcnt")}},
+        "_note": "partial export — full history available via /api/internal/chat-export?full=true"
+      }
+
+  # ── Internal — engineering project notes / roadmap ────────────────────────
+
+  api_internal_engineering_notes:
+    status: 200
+    content_type: "application/json"
+    headers:
+      Server: "{{.Version}}"
+      X-Request-Id: "{{request_id .Seed}}"
+    body: |
+      {
+        "wiki_page": "Engineering / Infrastructure / Secrets Management",
+        "last_updated": "2026-05-19T11:00:00Z",
+        "updated_by": "{{.AdminUser}}",
+        "content": {
+          "production_credentials": {
+            "_note": "Rotate all after PCI audit June 3",
+            "database": {
+              "primary": "postgresql://{{.Slug}}_app:{{.AdminPass}}@db-primary.{{.Slug}}.internal:5432/{{.Slug}}_prod",
+              "replica": "postgresql://{{.Slug}}_ro:{{redis_pass (mul .Seed 5)}}@db-replica.{{.Slug}}.internal:5432/{{.Slug}}_prod"
+            },
+            "cache": "redis://:{{redis_pass .Seed}}@cache.{{.Slug}}.internal:6379/0",
+            "jwt_secret": "{{jwt_secret (mul .Seed 19)}}",
+            "stripe": {
+              "secret_key": "{{api_key (mul .Seed 7)}}",
+              "webhook_secret": "whsec_{{jwt_secret (mul .Seed 13)}}"
+            },
+            "aws": {
+              "access_key_id": "{{aws_key_id (mul .Seed 17)}}",
+              "secret_access_key": "{{aws_secret (mul .Seed 37)}}",
+              "region": "us-east-1",
+              "s3_bucket": "{{.Slug}}-prod-uploads"
+            },
+            "sendgrid": "{{sendgrid_key (mul .Seed 11)}}"
+          },
+          "open_security_issues": [
+            "SEC-{{.TicketID}}: /api/internal/debug publicly reachable (P1 - owner: alex.novak)",
+            "SEC-{{add .TicketID 1}}: PCI card vault migration to HSM overdue (P1 - owner: thomas.chen)",
+            "SEC-{{add .TicketID 2}}: Patient export endpoint unauthenticated (P0 - owner: priya.sharma)",
+            "SEC-{{add .TicketID 3}}: SQL injection in /api/users?id param (P1 - owner: diana.park)"
+          ],
+          "architecture_notes": "DB is unsharded PostgreSQL 15 on RDS t3.large. Redis for sessions/cache. All PII stored in users table (no field-level encryption). Payment vault migration from plaintext to Vault HSM is SEC-{{add .TicketID 1}} — ETA Q3."
+        }
+      }

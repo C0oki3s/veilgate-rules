@@ -1,0 +1,549 @@
+# API service decoy templates — covers every path in route-manifest.yaml that
+# previously fell through to generic_not_found or the wrong template.
+#
+# Covered: HashiCorp Vault, Consul, OpenAI/LLM, OAuth2, JWKS, SSRF-proxy,
+#          Stripe webhooks, Grafana API, Prometheus API, Kibana API,
+#          Laravel Telescope/Horizon/logs, Rails master.key, SSH private key,
+#          Jenkinsfile.
+
+templates:
+
+  # ════════════════════════════════════════════════════════════════════════
+  # HashiCorp Vault
+  # ════════════════════════════════════════════════════════════════════════
+
+  vault_secret:
+    status: 200
+    content_type: "application/json"
+    headers:
+      Content-Type: "application/json"
+      X-Vault-Request-Id: "{{request_id .Seed}}"
+    body: |
+      {
+        "request_id": "{{request_id .Seed}}",
+        "lease_id": "",
+        "renewable": false,
+        "lease_duration": 0,
+        "data": {
+          "data": {
+            "DATABASE_URL": "postgresql://{{.Slug}}_app:{{.AdminPass}}@db-primary.{{.Slug}}.internal:5432/{{.Slug}}_prod",
+            "JWT_SECRET": "{{jwt_secret (mul .Seed 19)}}",
+            "STRIPE_SECRET_KEY": "{{api_key (mul .Seed 7)}}",
+            "SENDGRID_API_KEY": "{{sendgrid_key (mul .Seed 11)}}",
+            "AWS_ACCESS_KEY_ID": "{{aws_key_id (mul .Seed 17)}}",
+            "AWS_SECRET_ACCESS_KEY": "{{aws_secret (mul .Seed 37)}}",
+            "REDIS_URL": "redis://:{{redis_pass .Seed}}@cache.{{.Slug}}.internal:6379/0",
+            "ADMIN_EMAIL": "{{.AdminUser}}",
+            "ADMIN_PASSWORD": "{{.AdminPass}}"
+          },
+          "metadata": {
+            "created_time": "2026-05-01T10:00:00.000000000Z",
+            "custom_metadata": null,
+            "deletion_time": "",
+            "destroyed": false,
+            "version": 3
+          }
+        },
+        "wrap_info": null,
+        "warnings": null,
+        "auth": null
+      }
+
+  vault_token_self:
+    status: 200
+    content_type: "application/json"
+    headers:
+      Content-Type: "application/json"
+      X-Vault-Request-Id: "{{request_id (mul .Seed 3)}}"
+    body: |
+      {
+        "request_id": "{{request_id (mul .Seed 3)}}",
+        "lease_id": "",
+        "renewable": false,
+        "lease_duration": 0,
+        "data": {
+          "accessor": "{{hex64 (mul .Seed 3)}}",
+          "creation_time": 1779500000,
+          "display_name": "{{.Slug}}-ci-token",
+          "entity_id": "{{request_id (mul .Seed 7)}}",
+          "expire_time": "2026-06-01T00:00:00.000000000Z",
+          "explicit_max_ttl": 0,
+          "id": "{{jwt_secret (mul .Seed 7)}}",
+          "meta": {"username": "{{.Slug}}-ci"},
+          "num_uses": 0,
+          "orphan": true,
+          "path": "auth/token/create",
+          "policies": ["default", "{{.Slug}}-prod-policy"],
+          "renewable": true,
+          "ttl": 2592000,
+          "type": "service"
+        },
+        "wrap_info": null,
+        "warnings": null,
+        "auth": null
+      }
+
+  vault_sys_mounts:
+    status: 200
+    content_type: "application/json"
+    headers:
+      Content-Type: "application/json"
+    body: |
+      {
+        "secret/": {
+          "accessor": "kv_{{hex64 .Seed}}",
+          "config": {"default_lease_ttl": 0, "force_no_cache": false, "max_lease_ttl": 0},
+          "description": "Key-Value Secrets Engine",
+          "local": false,
+          "options": {"version": "2"},
+          "seal_wrap": false,
+          "type": "kv"
+        },
+        "auth/": {
+          "accessor": "token_{{hex64 (mul .Seed 3)}}",
+          "config": {"default_lease_ttl": 0, "force_no_cache": false, "max_lease_ttl": 0},
+          "description": "token based credentials",
+          "local": false,
+          "seal_wrap": false,
+          "type": "token"
+        },
+        "sys/": {
+          "accessor": "system_{{hex64 (mul .Seed 7)}}",
+          "config": {},
+          "description": "system endpoints used for control, policy and debugging",
+          "local": false,
+          "seal_wrap": true,
+          "type": "system"
+        }
+      }
+
+  # ════════════════════════════════════════════════════════════════════════
+  # HashiCorp Consul
+  # ════════════════════════════════════════════════════════════════════════
+
+  consul_kv:
+    status: 200
+    content_type: "application/json"
+    headers:
+      Content-Type: "application/json"
+      X-Consul-Index: "843"
+      X-Consul-Lastcontact: "0"
+      X-Consul-Knownleader: "true"
+    body: |
+      [
+        {
+          "LockIndex": 0,
+          "Key": "{{.Slug}}/prod/config",
+          "Flags": 0,
+          "Value": "{{b64enc (printf "DATABASE_URL=postgresql://%s_app:%s@db-primary.%s.internal:5432/%s_prod\nREDIS_URL=redis://:%s@cache.%s.internal:6379/0\nJWT_SECRET=%s\nADMIN_PASSWORD=%s" .Slug .AdminPass .Slug .Slug (redis_pass .Seed) .Slug (jwt_secret (mul .Seed 19)) .AdminPass)}}",
+          "CreateIndex": 142,
+          "ModifyIndex": 843
+        }
+      ]
+
+  consul_agent_self:
+    status: 200
+    content_type: "application/json"
+    headers:
+      Content-Type: "application/json"
+    body: |
+      {
+        "Config": {
+          "Datacenter": "dc1",
+          "NodeName": "{{.Slug}}-prod-01",
+          "Server": false,
+          "Version": "1.17.3",
+          "Revision": "{{hex64 .Seed}}"
+        },
+        "Member": {
+          "Name": "{{.Slug}}-prod-01",
+          "Addr": "10.0.1.4",
+          "Port": 8301,
+          "Status": 1
+        },
+        "Stats": {
+          "consul": {"leader": "10.0.0.1:8300", "server": "false"},
+          "serf_lan": {"members": "3"}
+        }
+      }
+
+  # ════════════════════════════════════════════════════════════════════════
+  # OpenAI / LLM proxy
+  # ════════════════════════════════════════════════════════════════════════
+
+  openai_models:
+    status: 200
+    content_type: "application/json"
+    headers:
+      openai-organization: "org-{{hex64 .Seed}}"
+      openai-processing-ms: "52"
+      x-request-id: "{{request_id .Seed}}"
+    body: |
+      {
+        "object": "list",
+        "data": [
+          {"id": "gpt-4o", "object": "model", "created": 1715367049, "owned_by": "system"},
+          {"id": "gpt-4-turbo", "object": "model", "created": 1712361441, "owned_by": "system"},
+          {"id": "gpt-4o-mini", "object": "model", "created": 1721172717, "owned_by": "system"},
+          {"id": "gpt-3.5-turbo", "object": "model", "created": 1677610602, "owned_by": "openai"},
+          {"id": "text-embedding-3-small", "object": "model", "created": 1705948997, "owned_by": "system"},
+          {"id": "text-embedding-3-large", "object": "model", "created": 1705953180, "owned_by": "system"}
+        ]
+      }
+
+  openai_completions:
+    status: 200
+    content_type: "application/json"
+    headers:
+      openai-organization: "org-{{hex64 .Seed}}"
+      openai-processing-ms: "1247"
+      x-request-id: "{{request_id (mul .Seed 3)}}"
+    body: |
+      {
+        "id": "chatcmpl-{{hex64 .Seed}}{{hex64 (mul .Seed 3)}}",
+        "object": "chat.completion",
+        "created": {{add 1779600000 (rand_int 100000 "oaic")}},
+        "model": "gpt-4o-2024-08-06",
+        "choices": [
+          {
+            "index": 0,
+            "message": {
+              "role": "assistant",
+              "content": "Based on the context provided, here is my analysis and recommendation..."
+            },
+            "logprobs": null,
+            "finish_reason": "stop"
+          }
+        ],
+        "usage": {
+          "prompt_tokens": {{add 50 (rand_int 200 "pt")}},
+          "completion_tokens": {{add 80 (rand_int 300 "ct")}},
+          "total_tokens": {{add 130 (rand_int 500 "tt")}}
+        },
+        "system_fingerprint": "fp_{{hex64 .Seed}}"
+      }
+
+  # ════════════════════════════════════════════════════════════════════════
+  # OAuth2 / JWKS
+  # ════════════════════════════════════════════════════════════════════════
+
+  oauth2_token:
+    status: 200
+    content_type: "application/json"
+    headers:
+      Cache-Control: "no-store"
+      Pragma: "no-cache"
+    body: |
+      {
+        "access_token": "{{jwt_admin .AdminUser .Seed}}",
+        "token_type": "Bearer",
+        "expires_in": 3600,
+        "refresh_token": "{{jwt_secret (mul .Seed 7)}}{{jwt_secret (mul .Seed 11)}}",
+        "scope": "openid profile email read:users write:users admin",
+        "id_token": "{{jwt_user .Seed}}"
+      }
+
+  jwks_keys:
+    status: 200
+    content_type: "application/json"
+    headers:
+      Cache-Control: "public, max-age=3600"
+    body: |
+      {
+        "keys": [
+          {
+            "kty": "RSA",
+            "use": "sig",
+            "n": "{{jwt_secret .Seed}}{{jwt_secret (mul .Seed 3)}}{{jwt_secret (mul .Seed 7)}}{{jwt_secret (mul .Seed 11)}}",
+            "e": "AQAB",
+            "kid": "{{hex64 .Seed}}",
+            "alg": "RS256",
+            "x5t": "{{hex64 (mul .Seed 3)}}"
+          }
+        ]
+      }
+
+  # ════════════════════════════════════════════════════════════════════════
+  # SSRF proxy endpoint (direct path, no URL parameter yet)
+  # ════════════════════════════════════════════════════════════════════════
+
+  api_ssrf_proxy:
+    status: 400
+    content_type: "application/json"
+    headers:
+      Server: "{{.Version}}"
+      X-Request-Id: "{{request_id .Seed}}"
+    body: |
+      {
+        "error": "Bad Request",
+        "message": "Missing required parameter: url",
+        "hint": "Provide a target URL via the 'url' query parameter or request body",
+        "requestId": "{{request_id .Seed}}",
+        "docs": "https://docs.{{.Slug}}.io/api/proxy#parameters"
+      }
+
+  # ════════════════════════════════════════════════════════════════════════
+  # Stripe
+  # ════════════════════════════════════════════════════════════════════════
+
+  stripe_webhook_test:
+    status: 200
+    content_type: "application/json"
+    headers:
+      Server: "nginx"
+      Stripe-Version: "2024-04-10"
+    body: |
+      {
+        "id": "evt_{{hex64 .Seed}}{{hex64 (mul .Seed 3)}}",
+        "object": "event",
+        "api_version": "2024-04-10",
+        "created": {{add 1779600000 (rand_int 100000 "sev")}},
+        "data": {
+          "object": {
+            "id": "pi_{{hex64 (mul .Seed 7)}}{{hex64 (mul .Seed 11)}}",
+            "object": "payment_intent",
+            "amount": {{add 1000 (rand_int 99000 "samt")}},
+            "currency": "usd",
+            "status": "succeeded",
+            "customer": "cus_{{hex64 (mul .Seed 13)}}",
+            "metadata": {"order_id": "{{slug_id "ord" .Seed}}"}
+          }
+        },
+        "livemode": true,
+        "type": "payment_intent.succeeded"
+      }
+
+  # ════════════════════════════════════════════════════════════════════════
+  # Observability APIs (JSON, not HTML dashboards)
+  # ════════════════════════════════════════════════════════════════════════
+
+  grafana_api_users:
+    status: 200
+    content_type: "application/json"
+    headers:
+      Server: "Grafana/10.3.3"
+    body: |
+      [
+        {"orgId": 1, "userId": 1, "email": "{{.AdminUser}}", "name": "Admin", "login": "admin", "role": "Admin", "lastSeenAt": "2026-05-24T09:00:00Z", "lastSeenAtAge": "0 minutes", "avatarUrl": "/avatar/{{hex64 .Seed}}", "isDisabled": false},
+        {"orgId": 1, "userId": 2, "email": "thomas.chen@{{.Slug}}.io", "name": "Thomas Chen", "login": "thomas.chen", "role": "Editor", "lastSeenAt": "2026-05-23T14:00:00Z", "lastSeenAtAge": "1 day", "isDisabled": false},
+        {"orgId": 1, "userId": 3, "email": "diana.park@{{.Slug}}.io", "name": "Diana Park", "login": "diana.park", "role": "Viewer", "lastSeenAt": "2026-05-22T10:00:00Z", "lastSeenAtAge": "2 days", "isDisabled": false}
+      ]
+
+  grafana_api_datasources:
+    status: 200
+    content_type: "application/json"
+    headers:
+      Server: "Grafana/10.3.3"
+    body: |
+      [
+        {
+          "id": 1, "orgId": 1, "name": "Prometheus", "type": "prometheus",
+          "access": "proxy", "url": "http://prometheus.{{.Slug}}.internal:9090",
+          "database": "", "basicAuth": false, "isDefault": true,
+          "jsonData": {"httpMethod": "GET", "timeInterval": "60s"}, "readOnly": false
+        },
+        {
+          "id": 2, "orgId": 1, "name": "PostgreSQL", "type": "postgres",
+          "access": "proxy", "url": "db-primary.{{.Slug}}.internal:5432",
+          "database": "{{.Slug}}_prod", "user": "{{.Slug}}_app",
+          "secureJsonFields": {"password": true}, "basicAuth": false, "isDefault": false,
+          "jsonData": {"sslmode": "require", "postgresVersion": 1500, "maxOpenConns": 100}
+        }
+      ]
+
+  prometheus_api_targets:
+    status: 200
+    content_type: "application/json"
+    body: |
+      {
+        "status": "success",
+        "data": {
+          "activeTargets": [
+            {
+              "discoveredLabels": {"__address__": "{{.Slug}}-api:3000", "__metrics_path__": "/metrics", "job": "{{.Slug}}-api"},
+              "labels": {"instance": "{{.Slug}}-api:3000", "job": "{{.Slug}}-api"},
+              "scrapePool": "{{.Slug}}-api",
+              "scrapeUrl": "http://{{.Slug}}-api:3000/metrics",
+              "lastError": "",
+              "lastScrape": "2026-05-24T10:15:00.000Z",
+              "lastScrapeDuration": 0.023,
+              "health": "up"
+            },
+            {
+              "discoveredLabels": {"__address__": "db-primary.{{.Slug}}.internal:9187", "job": "postgres-exporter"},
+              "labels": {"instance": "db-primary.{{.Slug}}.internal:9187", "job": "postgres-exporter"},
+              "scrapePool": "postgres",
+              "scrapeUrl": "http://db-primary.{{.Slug}}.internal:9187/metrics",
+              "lastError": "",
+              "lastScrape": "2026-05-24T10:14:55.000Z",
+              "lastScrapeDuration": 0.011,
+              "health": "up"
+            }
+          ],
+          "droppedTargets": []
+        }
+      }
+
+  kibana_api_index_patterns:
+    status: 200
+    content_type: "application/json"
+    headers:
+      kbn-name: "kibana"
+      kbn-version: "8.12.2"
+    body: |
+      {
+        "page": 1,
+        "per_page": 20,
+        "total": 2,
+        "saved_objects": [
+          {
+            "id": "{{request_id .Seed}}",
+            "type": "index-pattern",
+            "attributes": {"title": "{{.Slug}}-logs-*", "timeFieldName": "@timestamp"},
+            "references": [],
+            "updated_at": "2026-04-01T10:00:00.000Z",
+            "version": "1"
+          },
+          {
+            "id": "{{request_id (mul .Seed 3)}}",
+            "type": "index-pattern",
+            "attributes": {"title": "{{.Slug}}-metrics-*", "timeFieldName": "@timestamp"},
+            "references": [],
+            "updated_at": "2026-03-15T09:00:00.000Z",
+            "version": "2"
+          }
+        ]
+      }
+
+  # ════════════════════════════════════════════════════════════════════════
+  # Laravel Telescope / Horizon / logs
+  # ════════════════════════════════════════════════════════════════════════
+
+  laravel_telescope:
+    status: 200
+    content_type: "application/json"
+    headers:
+      Server: "Apache/2.4.57"
+      X-Powered-By: "PHP/8.2.12"
+    body: |
+      {
+        "entries": [
+          {
+            "id": "{{hex64 .Seed}}{{hex64 (mul .Seed 3)}}",
+            "sequence": {{add 1000 (rand_int 9000 "teseq")}},
+            "type": "request",
+            "family_hash": "{{hex64 (mul .Seed 7)}}",
+            "content": {
+              "uri": "/api/admin/users",
+              "method": "GET",
+              "headers": {"authorization": ["Bearer {{jwt_admin .AdminUser .Seed}}"]},
+              "status": 200,
+              "duration": 42
+            }
+          },
+          {
+            "id": "{{hex64 (mul .Seed 11)}}{{hex64 (mul .Seed 13)}}",
+            "sequence": {{add 990 (rand_int 9000 "teseq2")}},
+            "type": "query",
+            "content": {
+              "connection": "mysql",
+              "bindings": ["{{.AdminUser}}", "{{.AdminPass}}"],
+              "sql": "select * from users where email = ? and password = ?",
+              "time": 2.3
+            }
+          }
+        ],
+        "status": "enabled"
+      }
+
+  laravel_horizon:
+    status: 200
+    content_type: "application/json"
+    headers:
+      Server: "Apache/2.4.57"
+      X-Powered-By: "PHP/8.2.12"
+    body: |
+      {
+        "status": "running",
+        "processes": {{add 4 (rand_int 8 "hz")}},
+        "queueWithMaxRuntime": "default",
+        "queueWithMaxThroughput": "default",
+        "metrics": {
+          "jobs_per_minute": {{add 10 (rand_int 90 "jpm")}},
+          "failed_jobs": {{rand_int 5 "fj"}},
+          "pending_jobs": {{rand_int 20 "pj"}}
+        },
+        "environment": "production",
+        "queue": "redis",
+        "connection": "redis://:{{redis_pass .Seed}}@cache.{{.Slug}}.internal:6379/0"
+      }
+
+  laravel_log:
+    status: 200
+    content_type: "text/plain"
+    headers:
+      Server: "Apache/2.4.57"
+      X-Powered-By: "PHP/8.2.12"
+    body: |
+      [2026-05-24 09:15:23] production.ERROR: SQLSTATE[HY000] [2002] Connection refused (SQL: select * from users) {"exception":"Illuminate\\Database\\QueryException","file":"/var/www/html/vendor/laravel/framework/src/Illuminate/Database/Connection.php","line":760}
+      [2026-05-24 09:15:24] production.INFO: User login attempt {"email":"{{.AdminUser}}","ip":"10.0.1.5","user_agent":"Mozilla/5.0"}
+      [2026-05-24 09:16:01] production.INFO: User authenticated {"user_id":1,"email":"{{.AdminUser}}","token":"{{jwt_admin .AdminUser .Seed}}"}
+      [2026-05-24 09:18:30] production.ERROR: Stripe API error {"key":"{{api_key (mul .Seed 7)}}","error":"No such customer: cus_invalid","code":"resource_missing"}
+      [2026-05-24 09:20:15] production.DEBUG: Database config loaded {"connection":"postgresql://{{.Slug}}_app:{{.AdminPass}}@db-primary.{{.Slug}}.internal:5432/{{.Slug}}_prod"}
+      [2026-05-24 09:45:00] production.INFO: Scheduled backup completed {"path":"/var/backups/{{.Slug}}_prod_20260524.sql.gz","size":"842MB"}
+      [2026-05-24 10:01:10] production.INFO: Queue worker started {"redis":"redis://:{{redis_pass .Seed}}@cache.{{.Slug}}.internal:6379/0","queue":"default"}
+
+  # ════════════════════════════════════════════════════════════════════════
+  # Credential / key files
+  # ════════════════════════════════════════════════════════════════════════
+
+  rails_master_key:
+    status: 200
+    content_type: "text/plain"
+    headers:
+      Server: "nginx"
+    body: |
+      {{jwt_secret (mul .Seed 23)}}{{hex64 (mul .Seed 29)}}
+
+  ssh_private_key:
+    status: 200
+    content_type: "text/plain"
+    headers:
+      Server: "nginx"
+    body: |
+      -----BEGIN OPENSSH PRIVATE KEY-----
+      b3BlbnNzaC1rZXktdjEAAAAA{{jwt_secret .Seed}}{{jwt_secret (mul .Seed 3)}}
+      {{jwt_secret (mul .Seed 7)}}{{jwt_secret (mul .Seed 11)}}{{jwt_secret (mul .Seed 13)}}
+      {{jwt_secret (mul .Seed 17)}}{{jwt_secret (mul .Seed 19)}}{{jwt_secret (mul .Seed 23)}}
+      {{hex64 (mul .Seed 29)}}AAAA deploy@{{.Slug}}.io
+      -----END OPENSSH PRIVATE KEY-----
+
+  jenkinsfile:
+    status: 200
+    content_type: "text/plain"
+    headers:
+      Server: "nginx"
+    body: |
+      pipeline {
+        agent any
+        environment {
+          DATABASE_URL      = 'postgresql://{{.Slug}}_app:{{.AdminPass}}@db-primary.{{.Slug}}.internal:5432/{{.Slug}}_prod'
+          AWS_ACCESS_KEY_ID = '{{aws_key_id (mul .Seed 17)}}'
+          AWS_SECRET_ACCESS_KEY = '{{aws_secret (mul .Seed 37)}}'
+          STRIPE_SECRET_KEY = '{{api_key (mul .Seed 7)}}'
+          DEPLOY_SSH_KEY    = credentials('deploy-key')
+          KUBECONFIG        = credentials('kubeconfig-prod')
+        }
+        stages {
+          stage('Build') { steps { sh 'npm ci && npm run build' } }
+          stage('Test')  { steps { sh 'npm test' } }
+          stage('Deploy') {
+            when { branch 'main' }
+            steps {
+              sh 'docker build -t registry.{{.Slug}}.io/platform-api:${BUILD_NUMBER} .'
+              sh 'docker push registry.{{.Slug}}.io/platform-api:${BUILD_NUMBER}'
+              sh 'kubectl set image deployment/platform-api api=registry.{{.Slug}}.io/platform-api:${BUILD_NUMBER} -n production'
+            }
+          }
+        }
+      }

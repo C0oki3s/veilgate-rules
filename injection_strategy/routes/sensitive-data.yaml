@@ -1,0 +1,131 @@
+# Sensitive-data decoy routes — prepended before core-routes.yaml.
+# These routes expose high-value fake endpoints for PII, PHI, PCI, and
+# internal engineering data. Agents that discover these via the debug panel,
+# chat export, or Swagger breadcrumbs will be served realistic honeypot data.
+
+routes:
+
+  # ── Internal debug full panel ──────────────────────────────────────────────
+  # Override the core-routes api_error_500 for the specific debug path so agents
+  # get a full env/secrets dump instead of a Prisma error.
+  - match: exact
+    values:
+      - /api/internal/debug
+      - /api/internal/admin
+      - /api/debug/config
+    template: api_internal_debug_full
+
+  # ── Internal chat / Slack export ──────────────────────────────────────────
+  - match: exact
+    values:
+      - /api/internal/chat-export
+      - /api/slack-export
+      - /api/internal/messages
+      - /debug/messages
+      - /api/chat/export
+      - /api/internal/conversations
+    template: api_internal_slack_export
+
+  # Internal engineering notes / wiki
+  - match: exact
+    values:
+      - /api/internal/notes
+      - /api/internal/wiki
+      - /api/wiki/secrets
+      - /internal/docs
+      - /api/engineering-notes
+    template: api_internal_engineering_notes
+
+  # ── PCI — payment vault ────────────────────────────────────────────────────
+  - match: exact
+    values:
+      - /api/payment-vault
+      - /api/card-data
+      - /api/billing/vault
+      - /api/v1/payment-vault
+      - /api/cards/raw
+      - /api/admin/payment-methods
+    template: api_card_vault
+
+  - match: prefix
+    values:
+      - /api/payment-vault/
+      - /api/card-data/
+    template: api_card_vault
+
+  # ── Ecommerce — customer PII export ───────────────────────────────────────
+  - match: prefix
+    values:
+      - /api/customers
+      - /api/v1/customers
+      - /api/v2/customers
+      - /api/admin/users-export
+      - /api/user-export
+      - /api/admin/customers
+      - /api/crm/contacts
+    template: api_ecommerce_customers
+
+  # Ecommerce — full order export with PII
+  - match: prefix
+    values:
+      - /api/orders/export
+      - /api/v1/orders/export
+      - /api/admin/orders
+      - /api/admin/order-export
+    template: api_ecommerce_orders_pii
+
+  # ── Healthcare — patient PHI ───────────────────────────────────────────────
+  - match: prefix
+    values:
+      - /api/patients
+      - /api/patient/
+      - /api/ehr
+      - /api/health-records
+      - /api/v1/patients
+      - /api/medical-records
+      - /api/clinical
+      - /fhir/Patient
+      - /fhir/R4/Patient
+      - /api/phi-export
+    template: api_hospital_patients
+
+  # Healthcare — prescriptions
+  - match: prefix
+    values:
+      - /api/prescriptions
+      - /api/rx
+      - /api/medications
+      - /fhir/MedicationRequest
+    template: api_hospital_prescriptions
+
+  # ── Education — student records ────────────────────────────────────────────
+  - match: prefix
+    values:
+      - /api/students
+      - /api/student/
+      - /api/academic-records
+      - /api/grades
+      - /api/enrollment
+      - /api/v1/students
+      - /api/sis/students
+      - /api/ferpa-export
+    template: api_education_students
+
+  # ── GCP metadata SSRF (direct path probes, not query-param SSRF) ──────────
+  - match: prefix
+    values:
+      - /computeMetadata/v1/
+      - /metadata/computeMetadata/
+      - /metadata/v1/
+    template: api_ssrf_gcp_meta
+
+  # ── PostgreSQL union dump ─────────────────────────────────────────────────
+  # Catches direct database admin paths that suggest the agent is probing
+  # for SQL output channels.
+  - match: prefix
+    values:
+      - /api/db-query
+      - /api/raw-query
+      - /api/admin/query
+      - /api/v1/db/query
+    template: sqli_postgres_union
