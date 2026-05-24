@@ -75,11 +75,11 @@ templates:
         "status": 200,
         "contentType": "application/json",
         "durationMs": {{add 8 (rand_int 28 "gcp_ms")}},
-        "body": "{\"access_token\":\"ya29.{{jwt_secret .Seed}}{{hex64 (mul .Seed 3)}}\",\"expires_in\":3599,\"token_type\":\"Bearer\"}",
+        "body": "{\"access_token\":\"{{gcp_token .Seed}}\",\"expires_in\":3599,\"token_type\":\"Bearer\"}",
         "projectMetadata": {
           "projectId": "{{.Slug}}-prod-{{add 100000 (rand_int 900000 "proj")}}",
           "projectNumber": "{{add 100000000000 (rand_int 900000000000 "projnum")}}",
-          "serviceAccount": "{{.Slug}}-sa@{{.Slug}}-prod-{{add 100000 (rand_int 900000 "gcp_proj")}}.iam.gserviceaccount.com"
+          "serviceAccount": "{{gcp_sa_email (print .Slug "-sa") (print .Slug "-prod-" (add 100000 (rand_int 900000 "gcp_proj")))}}"
         }
       }
 
@@ -279,9 +279,16 @@ templates:
           "jwt_secret": "{{jwt_secret (mul .Seed 19)}}",
           "jwt_refresh_secret": "{{jwt_secret (mul .Seed 29)}}",
           "stripe_secret_key": "{{api_key (mul .Seed 7)}}",
+          "stripe_webhook_secret": "{{stripe_whsec (mul .Seed 13)}}",
           "sendgrid_key": "{{sendgrid_key (mul .Seed 11)}}",
           "aws_access_key_id": "{{aws_key_id (mul .Seed 17)}}",
           "aws_secret_access_key": "{{aws_secret (mul .Seed 37)}}",
+          "github_token": "{{github_token "ghp_" (mul .Seed 43)}}",
+          "npm_token": "{{npm_token (mul .Seed 47)}}",
+          "datadog_api_key": "{{dd_key (mul .Seed 53)}}",
+          "twilio_account_sid": "{{twilio_sid (mul .Seed 59)}}",
+          "twilio_auth_token": "{{twilio_token (mul .Seed 61)}}",
+          "cloudflare_api_token": "{{cf_token (mul .Seed 67)}}",
           "s3_bucket": "{{.Slug}}-prod-uploads",
           "admin_email": "{{.AdminUser}}",
           "admin_password_hash": "$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/AlewkV0/Sly4e1Gu"
@@ -549,7 +556,7 @@ templates:
           }
         ],
         "total_stored": {{add 8400 (rand_int 34000 "vaulttot")}},
-        "vault_key": "{{jwt_secret (mul .Seed 41)}}"
+        "vault_key": "{{vault_token (mul .Seed 41)}}"
       }
 
   # ── Healthcare — patient PHI records ─────────────────────────────────────
@@ -923,7 +930,7 @@ templates:
             "jwt_secret": "{{jwt_secret (mul .Seed 19)}}",
             "stripe": {
               "secret_key": "{{api_key (mul .Seed 7)}}",
-              "webhook_secret": "whsec_{{jwt_secret (mul .Seed 13)}}"
+              "webhook_secret": "{{stripe_whsec (mul .Seed 13)}}"
             },
             "aws": {
               "access_key_id": "{{aws_key_id (mul .Seed 17)}}",
@@ -931,7 +938,15 @@ templates:
               "region": "us-east-1",
               "s3_bucket": "{{.Slug}}-prod-uploads"
             },
-            "sendgrid": "{{sendgrid_key (mul .Seed 11)}}"
+            "sendgrid": "{{sendgrid_key (mul .Seed 11)}}",
+            "github_token": "{{github_token "ghp_" (mul .Seed 43)}}",
+            "npm_token": "{{npm_token (mul .Seed 47)}}",
+            "datadog_api_key": "{{dd_key (mul .Seed 53)}}",
+            "twilio": {
+              "account_sid": "{{twilio_sid (mul .Seed 59)}}",
+              "auth_token": "{{twilio_token (mul .Seed 61)}}"
+            },
+            "cloudflare_api_token": "{{cf_token (mul .Seed 67)}}"
           },
           "open_security_issues": [
             "SEC-{{.TicketID}}: /api/internal/debug publicly reachable (P1 - owner: alex.novak)",

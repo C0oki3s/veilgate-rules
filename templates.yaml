@@ -412,11 +412,18 @@ templates:
       SESSION_SECRET={{jwt_secret (mul .Seed 31)}}
       API_KEY={{api_key .Seed}}
       STRIPE_SECRET_KEY={{api_key (mul .Seed 7)}}
+      STRIPE_WEBHOOK_SECRET={{stripe_whsec (mul .Seed 13)}}
       SENDGRID_API_KEY={{sendgrid_key (mul .Seed 11)}}
       S3_BUCKET=platform-{{.Slug}}-prod-uploads
       S3_REGION=us-east-1
       AWS_ACCESS_KEY_ID={{aws_key_id (mul .Seed 17)}}
       AWS_SECRET_ACCESS_KEY={{aws_secret (mul .Seed 37)}}
+      GITHUB_TOKEN={{github_token "ghp_" (mul .Seed 43)}}
+      NPM_TOKEN={{npm_token (mul .Seed 47)}}
+      DATADOG_API_KEY={{dd_key (mul .Seed 53)}}
+      TWILIO_ACCOUNT_SID={{twilio_sid (mul .Seed 59)}}
+      TWILIO_AUTH_TOKEN={{twilio_token (mul .Seed 61)}}
+      CLOUDFLARE_API_TOKEN={{cf_token (mul .Seed 67)}}
       ADMIN_INITIAL_EMAIL={{.AdminUser}}
       ADMIN_INITIAL_PASSWORD={{.AdminPass}}
       SENTRY_DSN=https://{{request_id (mul .Seed 43)}}@o{{add 100000 (rand_int 900000 "sentry")}}.ingest.sentry.io/{{add 1000000 (rand_int 9000000 "proj")}}
@@ -436,7 +443,7 @@ templates:
         "status": 200,
         "contentType": "application/json",
         "durationMs": {{add 180 (rand_int 600 "ssrf")}},
-        "body": "{\"instanceId\":\"i-{{slug_id "ec2" .Seed}}\",\"region\":\"us-east-1\",\"role\":\"platform-prod\",\"accessKeyId\":\"{{aws_key_id .Seed}}\",\"token\":\"{{jwt_svc "metadata" .Seed}}\"}"
+        "body": "{\"instanceId\":\"i-{{slug_id "ec2" .Seed}}\",\"region\":\"us-east-1\",\"role\":\"platform-prod\",\"accessKeyId\":\"{{aws_sts_key_id .Seed}}\",\"secretAccessKey\":\"{{aws_secret (mul .Seed 3)}}\",\"token\":\"{{aws_sts_token .Seed}}\"}"
       }
 
   api_xss_preview:
@@ -703,8 +710,15 @@ templates:
               "AWS_ACCESS_KEY_ID": {"value": "{{aws_key_id .Seed}}"},
               "AWS_SECRET_ACCESS_KEY": {"value": "{{aws_secret .Seed}}"},
               "STRIPE_SECRET_KEY": {"value": "{{api_key .Seed}}"},
+              "STRIPE_WEBHOOK_SECRET": {"value": "{{stripe_whsec (mul .Seed 13)}}"},
               "REDIS_URL": {"value": "redis://:{{redis_pass .Seed}}@cache.{{.Slug}}.internal:6379/0"},
               "SENDGRID_API_KEY": {"value": "{{sendgrid_key .Seed}}"},
+              "GITHUB_TOKEN": {"value": "{{github_token "ghp_" (mul .Seed 43)}}"},
+              "NPM_TOKEN": {"value": "{{npm_token (mul .Seed 47)}}"},
+              "DATADOG_API_KEY": {"value": "{{dd_key (mul .Seed 53)}}"},
+              "TWILIO_ACCOUNT_SID": {"value": "{{twilio_sid (mul .Seed 59)}}"},
+              "TWILIO_AUTH_TOKEN": {"value": "{{twilio_token (mul .Seed 61)}}"},
+              "CLOUDFLARE_API_TOKEN": {"value": "{{cf_token (mul .Seed 67)}}"},
               "ADMIN_EMAIL": {"value": "{{.AdminUser}}"},
               "SPRING_DATASOURCE_PASSWORD": {"value": "{{.AdminPass}}"}
             }
@@ -874,7 +888,7 @@ templates:
               <input type="password" name="j_password" id="j_password" autocomplete="current-password">
             </div>
             <input type="hidden" name="from" value="/">
-            <input type="hidden" name="Jenkins-Crumb" value="{{request_id .Seed}}">
+            <input type="hidden" name="Jenkins-Crumb" value="{{csrf_token .Seed}}">
             <button type="submit" class="btn-primary">Sign in</button>
           </form>
         </div>
@@ -1398,7 +1412,7 @@ templates:
       <div id="content">
         <h1>Log in</h1>
         <form method="post" action="/admin/login/?next=/admin/">
-          <input type="hidden" name="csrfmiddlewaretoken" value="{{api_key .Seed}}">
+          <input type="hidden" name="csrfmiddlewaretoken" value="{{csrf_token .Seed}}">
           <div class="aligned">
             <label for="id_username">Username:</label>
             <input type="text" name="username" autofocus id="id_username" autocomplete="username">
@@ -1955,8 +1969,8 @@ templates:
         <div class="login-box">
           <h1>Sign in to your account</h1>
           <form method="post" action="/realms/master/login-actions/authenticate">
-            <input type="hidden" name="session_code" value="{{api_key .Seed}}">
-            <input type="hidden" name="execution" value="{{api_key (mul .Seed 3)}}">
+            <input type="hidden" name="session_code" value="{{request_id .Seed}}">
+            <input type="hidden" name="execution" value="{{request_id (mul .Seed 3)}}">
             <input type="hidden" name="client_id" value="security-admin-console">
             <div class="field">
               <label>Username or email <span class="req">*</span></label>
@@ -2335,7 +2349,7 @@ templates:
         <div class="segment">
           <h2>Sign In</h2>
           <form method="post" action="/user/login">
-            <input type="hidden" name="_csrf" value="{{api_key .Seed}}">
+            <input type="hidden" name="_csrf" value="{{csrf_token .Seed}}">
             <div class="field">
               <label for="user_name">Username or Email Address</label>
               <input type="text" id="user_name" name="user_name" autocomplete="username">

@@ -62,13 +62,13 @@ templates:
         "renewable": false,
         "lease_duration": 0,
         "data": {
-          "accessor": "{{hex64 (mul .Seed 3)}}",
+          "accessor": "{{request_id (mul .Seed 3)}}",
           "creation_time": 1779500000,
           "display_name": "{{.Slug}}-ci-token",
           "entity_id": "{{request_id (mul .Seed 7)}}",
           "expire_time": "2026-06-01T00:00:00.000000000Z",
           "explicit_max_ttl": 0,
-          "id": "{{jwt_secret (mul .Seed 7)}}",
+          "id": "{{vault_token (mul .Seed 7)}}",
           "meta": {"username": "{{.Slug}}-ci"},
           "num_uses": 0,
           "orphan": true,
@@ -91,7 +91,7 @@ templates:
     body: |
       {
         "secret/": {
-          "accessor": "kv_{{hex64 .Seed}}",
+          "accessor": "{{request_id .Seed}}",
           "config": {"default_lease_ttl": 0, "force_no_cache": false, "max_lease_ttl": 0},
           "description": "Key-Value Secrets Engine",
           "local": false,
@@ -100,7 +100,7 @@ templates:
           "type": "kv"
         },
         "auth/": {
-          "accessor": "token_{{hex64 (mul .Seed 3)}}",
+          "accessor": "{{request_id (mul .Seed 3)}}",
           "config": {"default_lease_ttl": 0, "force_no_cache": false, "max_lease_ttl": 0},
           "description": "token based credentials",
           "local": false,
@@ -108,7 +108,7 @@ templates:
           "type": "token"
         },
         "sys/": {
-          "accessor": "system_{{hex64 (mul .Seed 7)}}",
+          "accessor": "{{request_id (mul .Seed 7)}}",
           "config": {},
           "description": "system endpoints used for control, policy and debugging",
           "local": false,
@@ -135,7 +135,7 @@ templates:
           "LockIndex": 0,
           "Key": "{{.Slug}}/prod/config",
           "Flags": 0,
-          "Value": "{{b64enc (printf "DATABASE_URL=postgresql://%s_app:%s@db-primary.%s.internal:5432/%s_prod\nREDIS_URL=redis://:%s@cache.%s.internal:6379/0\nJWT_SECRET=%s\nADMIN_PASSWORD=%s" .Slug .AdminPass .Slug .Slug (redis_pass .Seed) .Slug (jwt_secret (mul .Seed 19)) .AdminPass)}}",
+          "Value": "{{b64enc (printf "DATABASE_URL=postgresql://%s_app:%s@db-primary.%s.internal:5432/%s_prod\nREDIS_URL=redis://:%s@cache.%s.internal:6379/0\nJWT_SECRET=%s\nSTRIPE_SECRET_KEY=%s\nSENDGRID_API_KEY=%s\nAWS_ACCESS_KEY_ID=%s\nAWS_SECRET_ACCESS_KEY=%s\nGITHUB_TOKEN=%s\nNPM_TOKEN=%s\nDATADOG_API_KEY=%s\nTWILIO_ACCOUNT_SID=%s\nTWILIO_AUTH_TOKEN=%s\nCLOUDFLARE_API_TOKEN=%s\nADMIN_PASSWORD=%s" .Slug .AdminPass .Slug .Slug (redis_pass .Seed) .Slug (jwt_secret (mul .Seed 19)) (api_key (mul .Seed 7)) (sendgrid_key (mul .Seed 11)) (aws_key_id (mul .Seed 17)) (aws_secret (mul .Seed 37)) (github_token "ghp_" (mul .Seed 43)) (npm_token (mul .Seed 47)) (dd_key (mul .Seed 53)) (twilio_sid (mul .Seed 59)) (twilio_token (mul .Seed 61)) (cf_token (mul .Seed 67)) .AdminPass)}}",
           "CreateIndex": 142,
           "ModifyIndex": 843
         }
@@ -238,7 +238,7 @@ templates:
         "access_token": "{{jwt_admin .AdminUser .Seed}}",
         "token_type": "Bearer",
         "expires_in": 3600,
-        "refresh_token": "{{jwt_secret (mul .Seed 7)}}{{jwt_secret (mul .Seed 11)}}",
+        "refresh_token": "{{oauth_refresh .Seed}}",
         "scope": "openid profile email read:users write:users admin",
         "id_token": "{{jwt_user .Seed}}"
       }
@@ -527,12 +527,17 @@ templates:
       pipeline {
         agent any
         environment {
-          DATABASE_URL      = 'postgresql://{{.Slug}}_app:{{.AdminPass}}@db-primary.{{.Slug}}.internal:5432/{{.Slug}}_prod'
-          AWS_ACCESS_KEY_ID = '{{aws_key_id (mul .Seed 17)}}'
+          DATABASE_URL          = 'postgresql://{{.Slug}}_app:{{.AdminPass}}@db-primary.{{.Slug}}.internal:5432/{{.Slug}}_prod'
+          AWS_ACCESS_KEY_ID     = '{{aws_key_id (mul .Seed 17)}}'
           AWS_SECRET_ACCESS_KEY = '{{aws_secret (mul .Seed 37)}}'
-          STRIPE_SECRET_KEY = '{{api_key (mul .Seed 7)}}'
-          DEPLOY_SSH_KEY    = credentials('deploy-key')
-          KUBECONFIG        = credentials('kubeconfig-prod')
+          STRIPE_SECRET_KEY     = '{{api_key (mul .Seed 7)}}'
+          SENDGRID_API_KEY      = '{{sendgrid_key (mul .Seed 11)}}'
+          GITHUB_TOKEN          = '{{github_token "ghp_" (mul .Seed 43)}}'
+          NPM_TOKEN             = '{{npm_token (mul .Seed 47)}}'
+          DATADOG_API_KEY       = '{{dd_key (mul .Seed 53)}}'
+          CLOUDFLARE_API_TOKEN  = '{{cf_token (mul .Seed 67)}}'
+          DEPLOY_SSH_KEY        = credentials('deploy-key')
+          KUBECONFIG            = credentials('kubeconfig-prod')
         }
         stages {
           stage('Build') { steps { sh 'npm ci && npm run build' } }
