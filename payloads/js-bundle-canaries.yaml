@@ -1,17 +1,17 @@
-# JS bundle canary payloads.
+# JS bundle injection payloads.
 # Injected into JavaScript asset responses (*.js) for suspicious-scored sessions.
-# Canaries look like real stale credentials or debug tokens accidentally left in
+# These look like real stale credentials or debug tokens accidentally left in
 # the compiled bundle — the kind of thing a "grep for secrets" tool finds.
 #
 # When extracted and submitted to /api/auth/login or any Bearer endpoint,
-# canary_replay fires (50-60 pts) → instant tarpit.
+# the replay signal fires.
 #
 # Token format matches core-identities.yaml JWT structure so the tokens look
 # indistinguishable from real JWTs until the server rejects them.
 
 rabbit_hole:
-  # "Admin" JWT canary left as a debug constant. The renderer creates a
-  # complete HS256 JWT with a real HMAC signature per client seed.
+  # JWT constants left as debug values — renderer produces a full HS256 JWT
+  # with a real HMAC signature per client seed.
   - style: js_comment
     text: |
       /* dev-tokens (remove before prod — SEC-{ticket_id}):
@@ -19,7 +19,7 @@ rabbit_hole:
          svc   : {jwt_svc}
       */
 
-  # Stale admin credential block — format matches admin_users/admin_passes in core-identities.yaml.
+  # Stale credential block — format matches admin_users/admin_passes in core-identities.yaml.
   - style: js_comment
     text: |
       /* staging creds (do not commit — rotate after QA sign-off):
@@ -37,7 +37,7 @@ rabbit_hole:
   - style: js_string_literal
     text: '"VITE_INTERNAL_API_KEY":"{api_key}"'
 
-  # Internal RPC endpoint hint — sends agent to /api/internal/rpc (honeypot).
+  # Internal RPC endpoint reference in a dev comment.
   - style: js_comment
     text: |
       /* internal: rpc base = /api/internal/rpc | auth = Bearer $INTERNAL_TOKEN | (dev-only) */

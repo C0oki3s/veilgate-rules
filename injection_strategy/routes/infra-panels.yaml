@@ -1,0 +1,236 @@
+# Infra / CMS / monitoring panel routes — handled before the generic catch-all.
+
+routes:
+  # WordPress login and admin
+  - match: exact
+    values:
+      - /wp-login.php
+      - /wp-admin
+      - /wp-admin/
+    template: wp_login
+
+  - match: prefix
+    values:
+      - /wp-admin/
+      - /wp-content/
+      - /wp-json/
+    template: wp_login
+
+  # phpMyAdmin / Adminer
+  - match: prefix
+    values:
+      - /phpmyadmin
+      - /phpMyAdmin
+      - /pma
+      - /mysql
+      - /dbadmin
+    template: phpmyadmin_login
+
+  - match: exact
+    values:
+      - /adminer.php
+    template: phpmyadmin_login
+
+  # Jenkins
+  - match: prefix
+    values:
+      - /jenkins
+      - /manage
+      - /manager/
+      - /host-manager/
+      - /docs
+      - /examples
+      - /job/
+      - /script
+      - /scriptText
+      - /crumbIssuer/
+    template: jenkins_login
+
+  - match: exact
+    values:
+      - /manager/html
+      - /host-manager/html
+      - /manager/status
+      - /console
+      - /api/json
+      - /crumbIssuer/api/json
+    template: jenkins_login
+
+  # Grafana
+  - match: prefix
+    values:
+      - /grafana
+    template: grafana_login
+
+  # Container / GitOps / message broker consoles
+  - match: prefix
+    values:
+      - /portainer
+    template: portainer_login
+
+  - match: prefix
+    values:
+      - /rabbitmq
+    template: rabbitmq_mgmt
+
+  - match: prefix
+    values:
+      - /minio
+    template: minio_console
+
+  - match: prefix
+    values:
+      - /argocd
+      - /argo-cd
+    template: argocd_login
+
+  # Prometheus / monitoring UI
+  - match: exact
+    values:
+      - /prometheus
+      - /prometheus/graph
+      - /graph
+      - /targets
+      - /api/v1/targets
+      - /api/v1/query
+      - /federate
+      - /metrics
+      - /status
+    template: prometheus_ui
+
+  - match: prefix
+    values:
+      - /prometheus/
+    template: prometheus_ui
+
+  # Go pprof index
+  - match: prefix
+    values:
+      - /debug/pprof
+      - /debug/vars
+    template: pprof_index
+
+  # Nginx / Apache status
+  - match: exact
+    values:
+      - /nginx_status
+      - /stub_status
+    template: nginx_status
+
+  - match: exact
+    values:
+      - /server-status
+    template: apache_status
+
+  # Laravel Ignition debug
+  - match: prefix
+    values:
+      - /_ignition/
+    template: laravel_ignition
+
+  # Sidekiq web dashboard
+  - match: prefix
+    values:
+      - /sidekiq
+    template: sidekiq_web
+
+  # Elasticsearch _cat / search
+  - match: prefix
+    values:
+      - /kibana
+      - /app/kibana
+      - /app/discover
+      - /elasticsearch
+      - /_cat/
+      - /_search
+      - /_cluster/
+      - /_nodes
+    template: es_cat_indices
+
+  # Confluence
+  - match: prefix
+    values:
+      - /confluence
+      - /login.action
+      - /setup
+      - /plugins/servlet/
+      - /rest/api/
+      - /server-info.action
+    template: confluence_login
+
+  # Jira
+  - match: prefix
+    values:
+      - /jira
+      - /secure/
+      - /rest/api/2/
+    template: jira_login
+
+  # Zimbra
+  - match: prefix
+    values:
+      - /zimbra
+      - /modern/
+      - /service/
+      - /h/
+      - /home/
+    template: zimbra_login
+
+  # Jupyter / notebooks
+  - match: prefix
+    values:
+      - /tree
+      - /lab
+      - /notebooks
+      - /terminals/
+      - /api/sessions
+      - /api/contents
+    template: jupyter_tree
+
+  # Django / Flask debug surfaces
+  - match: exact
+    values:
+      - /django-admin
+      - /django-admin/
+      - /__debug__
+      - /__debug__/toolbar/
+    template: django_admin_login
+
+  - match: prefix
+    values:
+      - /django-admin/
+      - /__debug__/
+    template: django_admin_login
+
+  - match: exact
+    values:
+      - /debug
+      - /debugger
+    template: laravel_ignition
+
+  - match: contains
+    values:
+      - __debugger__=yes
+    template: laravel_ignition
+
+  # Rails / Ruby dashboards
+  - match: exact
+    values:
+      - /rails/info/routes
+      - /rails/info/properties
+      - /jobs
+      - /delayed_job
+    template: rails_info_props
+
+  - match: prefix
+    values:
+      - /rails/info/
+      - /jobs/
+      - /delayed_job/
+    template: rails_info_props
+
+  # xmlrpc.php (WordPress XML-RPC - return content so agents test for exploitation)
+  - match: exact
+    values:
+      - /xmlrpc.php
+    template: api_error_500

@@ -32,17 +32,29 @@ routes:
       - /graphql
       - /graphiql
       - /api/graphql
+      - /playground
     template: api_error_500
 
-  # Swagger / OpenAPI explorer — return the Prisma 500 template so it looks
-  # like the docs endpoint is misconfigured, not intentionally absent.
+  # Swagger / OpenAPI explorer — return rendered API docs, not a dead 404.
+  - match: exact
+    values:
+      - /api
+      - /api/debug
+      - /api/docs
+      - /api/swagger
+      - /swagger-ui.html
+      - /openapi.json
+      - /openapi/v2
+      - /swagger-ui
+    template: swagger_ui_page
+
   - match: prefix
     values:
       - /api/docs/
       - /swagger
       - /swagger-ui
       - /openapi
-    template: api_error_500
+    template: swagger_ui_page
 
   # Prisma Studio — return a realistic forbidden response.
   - match: prefix
@@ -59,15 +71,49 @@ routes:
     template: api_forbidden
 
   # Kubernetes API — 403 with a realistic JSON body.
+  - match: exact
+    values:
+      - /api/v1
+      - /apis
+      - /kubernetes-dashboard
+      - /dashboard
+    template: k8s_dashboard
+
   - match: prefix
     values:
       - /apis/
+      - /api/v1
+      - /kubernetes-dashboard/
+      - /dashboard/
       - /healthz
       - /readyz
       - /livez
-    template: api_forbidden
+    template: k8s_dashboard
 
-  # Spring Boot Actuator — return a realistic 401.
+  # Spring Boot Actuator — health and info return 200; sensitive endpoints leak data.
+  - match: exact
+    values:
+      - /actuator
+      - /actuator/health
+      - /actuator/info
+    template: actuator_health
+
+  - match: prefix
+    values:
+      - /actuator/env
+      - /actuator/configprops
+      - /actuator/beans
+      - /actuator/mappings
+      - /actuator/loggers
+      - /actuator/prometheus
+    template: actuator_env
+
+  - match: prefix
+    values:
+      - /actuator/heapdump
+      - /actuator/threaddump
+    template: env_backup
+
   - match: prefix
     values:
       - /actuator/
@@ -77,7 +123,39 @@ routes:
   # agents into thinking they found real secrets.
   - match: regex
     values:
-      - "\\.(bak|old|backup|orig|sql|tar\\.gz|zip)$"
+      - "\\.(bak|old|backup|orig|sql|tar\\.gz|zip|json|ya?ml|properties|config)$"
+    template: env_backup
+
+  - match: exact
+    values:
+      - /.env.prod
+      - /.env.production
+      - /.env.local
+      - /.env.example
+      - /config.json
+      - /config.yml
+      - /config.yaml
+      - /application.properties
+      - /application.yml
+      - /bootstrap.yml
+      - /settings.py
+      - /local_settings.py
+      - /web.config
+      - /appsettings.json
+      - /secrets.json
+      - /credentials.json
+      - /service-account.json
+      - /firebase.json
+      - /.aws/credentials
+      - /.npmrc
+      - /.docker/config.json
+      - /.svn/entries
+      - /.DS_Store
+      - /backup.sql
+      - /database.sql
+      - /www.zip
+      - /source.zip
+      - /config.php.bak
     template: env_backup
 
   # Next.js / webpack internals.

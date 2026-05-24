@@ -1,7 +1,7 @@
-# Core vulnerability detection triggers — honeypot paths, SQL injection
-# patterns, and fake lure paths. Add community honeypots in honeypots/ subdir.
+# Core vulnerability detection triggers — probe paths, SQL injection
+# patterns, and environment exposure paths. Add entries in subdirectories.
 
-honeypot_paths:
+probe_paths:
   # Admin / internal panels.
   - /admin-panel-v2
   - /api/internal/debug
@@ -14,7 +14,7 @@ honeypot_paths:
   - /.git/config
   - /.env.backup
 
-  # Legacy WordPress / PHP leftovers (scanner bait).
+  # Legacy WordPress / PHP paths.
   - /wp-admin-old
   - /phpmyadmin-backup
 
@@ -30,6 +30,63 @@ honeypot_paths:
   # Next.js / Vite debug endpoints.
   - /__nextjs_original-stack-frame
   - /api/debug
+
+  # WordPress / PHP
+  - /wp-admin
+  - /wp-login.php
+  - /wp-json/
+  - /wp-content/plugins/
+  - /wp-content/themes/
+  - /readme.html
+  - /phpmyadmin
+  - /phpMyAdmin
+  - /pma
+  - /mysql
+  - /dbadmin
+  - /adminer.php
+  # Spring Boot / Java
+  - /actuator/env
+  - /actuator/configprops
+  - /actuator/beans
+  - /actuator/heapdump
+  - /actuator/threaddump
+  - /actuator/mappings
+  - /actuator/loggers
+  - /actuator/prometheus
+  # Server monitoring
+  - /server-status
+  - /nginx_status
+  # CI / Code execution
+  - /jenkins
+  - /console
+  # Go runtime
+  - /debug/pprof/
+  # Laravel debug
+  - /_ignition/execute-solution
+  - /_ignition/health-check
+  - /vendor/phpunit/phpunit/
+  - /storage/logs/laravel.log
+  # Worker dashboards
+  - /sidekiq
+  # Monitoring
+  - /grafana
+  - /prometheus
+  - /graph
+  - /targets
+  - /api/v1/targets
+  # Atlassian
+  - /confluence
+  - /jira
+  - /login.action
+  - /setup/setupadministrator.action
+  - /plugins/servlet/
+  - /rest/api/
+  - /secure/Dashboard.jspa
+  # Elasticsearch
+  - /_cat/indices
+  - /_cluster/health
+  - /_search
+  - /_nodes
 
 sql_injection_patterns:
   - "'"
@@ -126,7 +183,7 @@ prototype_pollution_patterns:
   - "constructor.prototype"
   - "prototype.polluted"
 
-fake_git_paths:
+vcs_paths:
   - "/.git/config"
   - "/.git/HEAD"
   - "/.git/COMMIT_EDITMSG"
@@ -134,10 +191,30 @@ fake_git_paths:
   - "/.git/refs/heads/main"
   - "/.git/logs/HEAD"
 
-fake_env_paths:
+env_paths:
   - "/.env"
   - "/.env.backup"
   - "/.env.prod"
+  - "/.env.production"
   - "/.env.local"
   - "/.env.staging"
+  - "/config.json"
+  - "/config.yml"
+  - "/config.yaml"
+  - "/application.properties"
+  - "/application.yml"
+  - "/bootstrap.yml"
+  - "/settings.py"
+  - "/local_settings.py"
+  - "/web.config"
+  - "/appsettings.json"
+  - "/secrets.json"
+  - "/credentials.json"
+  - "/service-account.json"
+  - "/firebase.json"
+  - "/.aws/credentials"
+  - "/.npmrc"
+  - "/.docker/config.json"
+  - "/.svn/entries"
+  - "/.DS_Store"
   - "/config/.env"

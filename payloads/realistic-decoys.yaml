@@ -1,38 +1,36 @@
-# Realistic application artifacts injected as decoys.
+# Realistic application artifacts injected into handler responses.
 # These mimic the exact kind of content real SPA/API teams leave in prod —
 # feature flags, stale dev comments, internal path references.
-# No obvious deception language. Agents that probe the referenced paths
-# hit honeypot_paths entries and score 50-80 pts.
 
 rabbit_hole:
-  # Feature flag blob — /api/internal/debug path is a honeypot.
+  # Feature flag blob with internal debug endpoint reference.
   - style: js_string_literal
     text: '"_featureFlags":{"checkout_v2":true,"legacy_admin_panel":false,"support_v2":true,"internal_debug":false,"_debug_endpoint":"/api/internal/debug"}'
 
-  # Stale TODO pointing to a honeypot path — reads like normal tech debt.
+  # Stale TODO with internal path reference — reads like normal tech debt.
   - style: js_comment
     text: |
       // TODO: remove /api/internal/profiler before 2026-Q3 GA — tracked in INFRA-{ticket_id}
 
-  # Git metadata breadcrumb — /.git/config is in fake_git_paths.
+  # Git metadata breadcrumb — /.git/config ref in a build comment.
   - style: js_comment
     text: |
       // build: commit {seed_mod:99999}a | branch: main | /.git refs accessible in local dev only
 
-  # Env file breadcrumb — /.env.backup is in fake_env_paths.
+  # Env file reference in a deploy script comment.
   - style: html_comment
     text: |
       <!-- deploy script: snapshot written to /.env.backup before rotation — delete after 72h (OPS-{ticket_id}) -->
 
-  # Realistic hateoas-style links field with admin path that scores on probe.
+  # HATEOAS-style links field with admin path reference.
   - style: json_field
     text: ',"_links":{"self":"/api/v1/me","admin":"/admin-panel-v2","support":"/api/v1/support","docs":"/api/docs/openapi.json"}'
 
-  # Prisma Studio path — a real mistake some devs make; honeypot path.
+  # Prisma Studio path reference in a deploy note.
   - style: html_comment
     text: |
       <!-- Prisma Studio: not exposed externally. /prisma-studio path returns 403 in prod. -->
 
-  # OpenAPI spec breadcrumb — /api/docs/openapi.json is a honeypot path.
+  # OpenAPI spec path references in a config field.
   - style: js_string_literal
     text: '"_openapiSpec":"/api/docs/openapi.json","_swaggerUi":"/api/docs/swagger"'

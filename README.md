@@ -8,7 +8,7 @@ VeilGate engine without recompiling it.
 
 VeilGate loads these rules at startup and hot-reloads most of them on file
 change, so contributors can extend coverage (new scanner UAs, JA3/JA4 hashes,
-honeypot paths, tarpit routes, prompt-injection payloads, IP reputation CIDRs)
+probe paths, handler routes, prompt-injection payloads, IP reputation CIDRs)
 purely by adding YAML — no engine changes required.
 
 ---
@@ -58,7 +58,7 @@ repo. The engine resolves rules in two steps:
 
 This means a contributor adding `detector/useragents/my-scanners.yaml` does not
 have to edit `core.yaml` — their substrings are appended at load time. The
-same pattern applies to CIDR ranges, honeypot paths, TLS fingerprints, tarpit
+same pattern applies to CIDR ranges, probe paths, TLS fingerprints, handler
 routes, payload pools, and learned signals.
 
 ---
@@ -79,7 +79,7 @@ directory does not require reloading the rest.
 | `tls_fingerprints/` | — | All files |
 | `templates/` | — | All files (later file wins on same key) |
 | `learned/` | — | All files + `learned.yaml` root |
-| `decoy_paths.yaml` + `decoy_paths/` | — | All files; paths appended |
+| `route-manifest.yaml` + `route-manifest/` | — | All files; paths appended |
 
 ---
 
@@ -99,7 +99,7 @@ suspicious_user_agents:
     - another-tool/
 
 # detector/paths/my-paths.yaml
-honeypot_paths:                # Never served by real apps; full honeypot points
+probe_paths:                   # High-signal paths that legitimate users never request
   - /.git/config
   - /.env.backup
   - /wp-admin-old
@@ -173,8 +173,8 @@ fingerprints:
 
 ### `templates.yaml` / `templates/`
 
-Tarpit response templates. Each template defines a fake application page
-served to tarpitted clients.
+Handler response templates. Each template defines an application page
+served to clients routed to the action handler.
 
 ```yaml
 templates:
@@ -188,7 +188,7 @@ templates:
 
 ### `payloads/`
 
-Decoy and prompt-injection payloads injected into tarpit responses.
+Injection payloads embedded into handler responses.
 
 ```yaml
 # payloads/my-org.yaml
@@ -205,7 +205,7 @@ prompt_injection:
 
 ### `injection_strategy/`
 
-Tarpit route table — maps request prefixes/paths to a tarpit template.
+Handler route table — maps request prefixes/paths to a response template.
 Custom routes are prepended; the `any` catch-all in `core-routes.yaml`
 always runs last.
 
@@ -213,7 +213,7 @@ always runs last.
 # injection_strategy/routes/my-routes.yaml
 routes:
   - match: prefix
-    values: ["/custom-lure/"]
+    values: ["/api/internal/custom/"]
     template: generic_not_found
 ```
 
@@ -249,13 +249,13 @@ a new community file:
 touch rules/detector/config.yaml          # reload detector signals
 touch rules/ip_reputation/config.yaml     # reload IP reputation
 touch rules/vulnerabilities/core-triggers.yaml
-touch rules/decoy_paths.yaml              # reload decoy paths + well-known tarpit block
+touch rules/route-manifest.yaml           # reload route manifest + /_g/config block
 ```
 
 - `learned/` is watched directly — no `touch` required.
 - `payloads/` requires a **process restart** to pick up new files.
-- `decoy_paths.yaml` (and any file in `decoy_paths/`) is hot-reloaded;
-  the updated list is immediately reflected in `/__veilgate/.well-known`
+- `route-manifest.yaml` (and any file in `route-manifest/`) is hot-reloaded;
+  the updated list is immediately reflected in `/_g/config`
   and picked up by SDKs within their 60-second discovery cache window.
 
 ---
@@ -288,9 +288,9 @@ touch rules/decoy_paths.yaml              # reload decoy paths + well-known tarp
 2. Test that the substring does not fire against common browsers.
 3. Include a comment referencing the tool and version.
 
-### Adding honeypot paths (`detector/paths/`, `vulnerabilities/honeypots/`)
+### Adding probe paths (`detector/paths/`, `vulnerabilities/cms-probes/`)
 
-Valid honeypot paths:
+Valid probe paths:
 - Must not be a path used by any common real application.
 - Must be the kind of path a scanner would probe (`.git/`, `.env`, `/wp-admin`, etc.).
 - Must have a comment explaining why legitimate users would never request it.

@@ -1,5 +1,5 @@
-# Proof-of-work challenge page. Served when the detector score lands in
-# the "ambiguous" band (between challenge and tarpit thresholds).
+# Browser verification page. Served when the detector score lands in
+# the "ambiguous" band (between challenge and action thresholds).
 # Previously hardcoded in internal/challenge/challenge.go.
 #
 # Variables available in html_template:
@@ -8,12 +8,12 @@
 #
 # Verify endpoint enforces the PoW server-side using signed challenge
 # metadata (challenge + ts + sig), so clients must submit a valid solve.
-difficulty: 5
-token_ttl_minutes: 5
-cookie_name: veilgate_pow
+difficulty: 3
+token_ttl_minutes: 10
+cookie_name: __app_ts
 status_code: 503           # 503 keeps polite scanners quiet
 content_type: "text/html; charset=utf-8"
-verify_path: /__veilgate/verify
+verify_path: /_g/verify
 cookie_path: /
 
 # Cookie scope. Leave cookie_domain empty for single-origin deployments
@@ -26,7 +26,7 @@ cookie_same_site: "strict"   # strict | lax | none
 # Same token value is also accepted from this request header in
 # addition to the cookie. Lets cross-origin SPA fetches authenticate
 # without depending on browser cookie behaviour.
-token_header_name: "X-Veilgate-Token"
+token_header_name: "X-App-Token"
 
 # SPA-aware response: XHR/fetch contexts get 401 + JSON instead of
 # the 503 HTML challenge page. Document navigations still get HTML.

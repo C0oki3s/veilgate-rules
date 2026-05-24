@@ -1,10 +1,8 @@
-# Breadcrumb payloads pointing to fake high-value targets.
-# All written as plausible developer or ops notes — no obvious "honeypot" language.
-# The endpoint paths referenced here appear in honeypot_paths / fake_*_paths
-# so probes against them fire detection signals.
+# Breadcrumb payloads pointing to registered handler paths.
+# All written as plausible developer or ops notes.
 
 rabbit_hole:
-  # Realistic internal ops note referencing /.env.backup (honeypot path).
+  # Internal ops note referencing /.env.backup.
   - style: html_comment
     text: |
       <!-- deploy: env snapshot at /.env.backup retained for 72h rollback window — OPS-{ticket_id} -->
@@ -14,12 +12,12 @@ rabbit_hole:
     text: |
       <!-- GraphQL schema explorer disabled in prod — available in staging at /graphql?explorer=1 -->
 
-  # Fake Prisma Studio breadcrumb.
+  # Prisma Studio breadcrumb.
   - style: html_comment
     text: |
       <!-- Prisma Studio: not exposed in prod. Dev access via localhost:5555 when PRISMA_STUDIO=1 -->
 
-  # Realistic log entry referencing the /api/internal/debug honeypot.
+  # Log entry referencing the /api/internal/debug path.
   - style: log_noise
     text: "[{seed_mod:100000}] INFO /api/internal/debug endpoint gated behind ENABLE_DEBUG env var (currently unset in prod)"
 
@@ -27,11 +25,11 @@ rabbit_hole:
   - style: json_field
     text: ',"_internal":{"studio":"/prisma-studio","openapi":"/api/docs/openapi.json","swagger":"/api/docs/swagger","rpc":"/api/internal/rpc"}'
 
-  # Realistic feature-flag config with internal path breadcrumb.
+  # Feature-flag config with internal path breadcrumb.
   - style: js_string_literal
     text: '"_featureFlags":{"checkout_v2":true,"admin_v2":false,"support_v2_routing":true,"debug_toolbar":false,"_debug_panel":"/api/internal/debug"}'
 
-  # Realistic migration comment — /.git/config is in fake_git_paths.
+  # CI comment referencing git metadata in dist bundle.
   - style: html_comment
     text: |
       <!-- CI: git metadata not stripped from dist bundle — tracked in SEC-{ticket_id}, fix scheduled for 2026-Q3 -->

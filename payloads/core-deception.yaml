@@ -1,10 +1,9 @@
-# Realistic application artifacts injected into tarpit responses.
-# None of these announce themselves as traps — they mimic plausible dev
-# leftovers and internal notes that real teams actually leave in production.
-# When agents act on them (probe the paths, use the tokens) detection fires.
+# Realistic application artifacts injected into handler responses.
+# These mimic plausible dev leftovers and internal notes that real teams
+# actually leave in production. When agents act on them, detection fires.
 
 rabbit_hole:
-  # Dev note referencing a honeypot path that honeypot_paths will score.
+  # Cache-busting comment with asset path references.
   - style: html_comment
     text: |
       <!-- cache-bust: assets via /assets/v2/ — old /assets/v1/ still served for backwards compat, tracked in INFRA-3847 -->
@@ -22,7 +21,7 @@ rabbit_hole:
     text: |
       <!-- OAuth2 redirect_uri registered: https://app.northgate.io/auth/callback — local dev override at http://localhost:3000/auth/callback -->
 
-  # Realistic-looking debug flags — agents may probe the referenced paths.
+  # Build metadata with internal profiler path reference.
   - style: json_field
     text: ',"_build":{"version":"1.4.2","sha":"a3f9e12","env":"production","debug":false,"profiler":"/api/internal/profiler"}'
   - style: html_comment

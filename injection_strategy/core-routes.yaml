@@ -1,10 +1,10 @@
 # Injection strategy — route table and injector config.
 # Route table: first match wins. Add community routes in routes/ subdirectory.
-# config.yaml sorts first so `any` catch-all in routes stays last.
+# config.yaml sorts first so the `any` catch-all in routes stays last.
 
 routes:
-  # Active OWASP attack payloads. These only execute inside the tarpit after
-  # detector scoring has already selected DecisionTarpit.
+  # Active OWASP attack payloads. These execute after detector scoring
+  # has already selected the action handler.
   - match: list
     values: ["xxe_patterns"]
     template: api_xxe_parse
@@ -65,7 +65,12 @@ routes:
     values: ["/api/support", "/api/v1/support", "/api/tickets"]
     template: api_support
 
-  # Internal/debug API paths — return Prisma-style 500 (looks like a real unhandled error).
+  # API discovery surfaces — return rendered content, not generic 404/401.
+  - match: exact
+    values: ["/api", "/api/debug", "/api/docs", "/api/swagger", "/api/json", "/api/v1", "/api/v1/targets", "/api/v1/query"]
+    template: swagger_ui_page
+
+  # Internal/debug API paths — return Prisma-style 500.
   - match: prefix
     values: ["/api/internal/", "/internal/"]
     template: api_error_500
@@ -94,14 +99,14 @@ routes:
     values: ["/users"]
     template: users_list
 
-  # Git metadata files.
+  # VCS metadata files.
   - match: list
-    values: ["fake_git_paths"]
+    values: ["vcs_paths"]
     template: git_config
 
   # Env/secrets files.
   - match: list
-    values: ["fake_env_paths"]
+    values: ["env_paths"]
     template: env_backup
 
   # Everything else → JSON 404 (consistent with SPA/API app behavior).

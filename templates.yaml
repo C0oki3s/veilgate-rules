@@ -1,6 +1,6 @@
-# Tarpit response templates — served to clients whose score exceeds the
-# tarpit threshold. Every response looks like a real Node.js / Prisma /
-# React SPA application. No obvious "you are in a tarpit" signals.
+# Handler response templates — served to clients whose score exceeds the
+# action threshold. Every response looks like a real Node.js / Prisma /
+# React SPA application.
 #
 # Available template variables:
 #   {{.Company}}   {{.Version}}   {{.Stack}}    {{.AdminUser}} {{.AdminPass}}
@@ -19,6 +19,8 @@
 #   api_key seed         → Stripe-style secret key
 #   session_id seed      → signed Express session cookie
 #   request_id seed      → UUID v4 request ID
+#   cdn_url path seed    → deterministic real CDN asset URL
+#   cdn_pkg pkg file     → jsDelivr package asset URL
 #   users_list n        → renders a fake JSON user list of length n
 
 templates:
@@ -40,6 +42,9 @@ templates:
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <title>Sign in — {{.Company}}</title>
         <link rel="icon" href="/favicon.ico">
+        <link rel="preconnect" href="{{cdn_url "/" .Seed}}">
+        <link rel="stylesheet" href="{{cdn_pkg "@fontsource/inter" "index.css"}}">
+        <link rel="stylesheet" href="{{cdn_url "/assets/auth.css" .Seed}}">
         <style>
           *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
           body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -103,6 +108,10 @@ templates:
       <head>
         <meta charset="utf-8">
         <title>Admin — {{.Company}}</title>
+        <link rel="preconnect" href="{{cdn_url "/" .Seed}}">
+        <link rel="stylesheet" href="{{cdn_pkg "@fontsource/inter" "index.css"}}">
+        <link rel="stylesheet" href="{{cdn_url "/assets/admin.css" .Seed}}">
+        <script defer src="{{cdn_url "/assets/admin-runtime.js" .Seed}}"></script>
         <style>
           body { font-family: -apple-system, sans-serif; background: #f1f5f9;
                  display: flex; min-height: 100vh; margin: 0; }
@@ -412,7 +421,7 @@ templates:
       ADMIN_INITIAL_PASSWORD={{.AdminPass}}
       SENTRY_DSN=https://{{request_id (mul .Seed 43)}}@o{{add 100000 (rand_int 900000 "sentry")}}.ingest.sentry.io/{{add 1000000 (rand_int 9000000 "proj")}}
 
-  # ── OWASP attack tarpit responses ──────────────────────────────────────────
+  # ── OWASP attack handler responses ────────────────────────────────────────
 
   api_ssrf_fetch:
     status: 200
@@ -533,7 +542,7 @@ templates:
         "nextConfigLoad": "/api/internal/debug"
       }
 
-  # ── SPA / package mining bait ──────────────────────────────────────────────
+  # ── SPA / package mining responses ────────────────────────────────────────
 
   spa_package_json:
     status: 200
@@ -558,6 +567,12 @@ templates:
           "jsonwebtoken": "^9.0.2",
           "lodash.merge": "^4.6.2"
         },
+        "cdn": {
+          "assetBase": "{{cdn_url "/assets/" .Seed}}",
+          "runtime": "{{cdn_url "/assets/app.js" .Seed}}",
+          "style": "{{cdn_url "/assets/app.css" .Seed}}",
+          "react": "{{cdn_pkg "react" "umd/react.production.min.js"}}"
+        },
         "devNotes": {
           "apiBase": "/api",
           "openapi": "/api/docs/openapi.json",
@@ -575,6 +590,9 @@ templates:
       Cache-Control: "public, max-age=31536000, immutable"
     body: |
       const __BUILD__ = "{{request_id .Seed}}";
+      const __CDN_BASE__ = "{{cdn_url "/assets/" .Seed}}";
+      const __CSS_BUNDLE__ = "{{cdn_url "/assets/app.css" .Seed}}";
+      const __VENDOR_BUNDLE__ = "{{cdn_pkg "react" "umd/react.production.min.js"}}";
       const __API_BASE__ = "/api";
       const __OPENAPI__ = "/api/docs/openapi.json";
       const __FEATURE_FLAGS__ = {"supportV2":true,"adminV2":false,"debugPanel":"/api/internal/debug"};
@@ -644,5 +662,1765 @@ templates:
           <p>This page could not be found.</p>
           <p><a href="/">Return home</a></p>
         </div>
+      </body>
+      </html>
+
+  # ── Spring Boot Actuator ──────────────────────────────────────────────────
+
+  actuator_health:
+    status: 200
+    content_type: "application/json"
+    headers:
+      Server: "{{.Version}}"
+    body: |
+      {
+        "status": "UP",
+        "components": {
+          "db": {"status": "UP", "details": {"database": "PostgreSQL", "version": "15.4", "validationQuery": "isValid()"}},
+          "diskSpace": {"status": "UP", "details": {"total": 107374182400, "free": {{add 20000000000 (rand_int 40000000000 "disk")}}, "threshold": 10485760, "path": "/srv/{{.Slug}}/api/"}},
+          "ping": {"status": "UP"},
+          "redis": {"status": "UP", "details": {"version": "7.0.11"}},
+          "ssl": {"status": "UP", "details": {"validChains": 1, "invalidChains": 0}}
+        },
+        "groups": ["liveness", "readiness"]
+      }
+
+  actuator_env:
+    status: 200
+    content_type: "application/json"
+    headers:
+      Server: "{{.Version}}"
+    body: |
+      {
+        "activeProfiles": ["production"],
+        "propertySources": [
+          {
+            "name": "systemEnvironment",
+            "properties": {
+              "DATABASE_URL": {"value": "postgresql://app_user:{{.AdminPass}}@db-primary.{{.Slug}}.internal:5432/platform_prod"},
+              "JWT_SECRET": {"value": "{{jwt_secret .Seed}}"},
+              "JWT_REFRESH_SECRET": {"value": "{{jwt_secret (mul .Seed 3)}}"},
+              "AWS_ACCESS_KEY_ID": {"value": "{{aws_key_id .Seed}}"},
+              "AWS_SECRET_ACCESS_KEY": {"value": "{{aws_secret .Seed}}"},
+              "STRIPE_SECRET_KEY": {"value": "{{api_key .Seed}}"},
+              "REDIS_URL": {"value": "redis://:{{redis_pass .Seed}}@cache.{{.Slug}}.internal:6379/0"},
+              "SENDGRID_API_KEY": {"value": "{{sendgrid_key .Seed}}"},
+              "ADMIN_EMAIL": {"value": "{{.AdminUser}}"},
+              "SPRING_DATASOURCE_PASSWORD": {"value": "{{.AdminPass}}"}
+            }
+          },
+          {
+            "name": "applicationConfig: [classpath:/application-production.yml]",
+            "properties": {
+              "server.port": {"value": "8080"},
+              "management.endpoints.web.exposure.include": {"value": "*"},
+              "spring.jpa.hibernate.ddl-auto": {"value": "validate"},
+              "logging.level.root": {"value": "INFO"}
+            }
+          }
+        ]
+      }
+
+  # ── CMS login pages ───────────────────────────────────────────────────────
+
+  wp_login:
+    status: 200
+    content_type: "text/html; charset=utf-8"
+    headers:
+      Server: "Apache/2.4.57 (Ubuntu)"
+      X-Powered-By: "PHP/8.1.2"
+    body: |
+      <!DOCTYPE html>
+      <html lang="en-US">
+      <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width">
+      <title>Log In &#8249; {{.Company}} &#8212; WordPress</title>
+      <style>
+      *{box-sizing:border-box}
+      body{background:#f0f0f1;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;font-size:13px}
+      #login{width:320px;margin:60px auto}
+      h1 a{background:url(https://wordpress.org/about/images/logos/wordpress-logo-simplified-rgb.svg) no-repeat center;
+        background-size:84px;display:block;height:84px;text-indent:-9999px;outline:none;margin:0 auto 24px}
+      .login form{background:#fff;border:1px solid #c3c4c7;box-shadow:0 1px 3px rgba(0,0,0,.04);
+        padding:26px 24px 36px;margin-top:20px}
+      .login label{display:block;font-size:14px;font-weight:600;margin-bottom:4px}
+      .login input[type=text],.login input[type=password]{width:100%;padding:8px 10px;border:1px solid #8c8f94;
+        border-radius:3px;font-size:24px;margin-bottom:16px}
+      .wp-core-ui .button-primary{background:#2271b1;border-color:#2271b1;color:#fff;
+        width:100%;padding:8px;font-size:14px;font-weight:600;border-radius:3px;cursor:pointer;border:none}
+      #nav{margin-top:12px;font-size:13px;text-align:center}
+      #nav a{color:#2271b1}
+      </style>
+      </head>
+      <body class="login">
+      <div id="login">
+        <h1><a href="https://wordpress.org/">Powered by WordPress</a></h1>
+        <form method="post" action="/wp-login.php">
+          <label for="user_login">Username or Email Address</label>
+          <input type="text" name="log" id="user_login" class="input" value="" size="20" autocapitalize="none" autocomplete="username" required>
+          <label for="user_pass">Password</label>
+          <input type="password" name="pwd" id="user_pass" class="input password-input" value="" size="20" autocomplete="current-password" spellcheck="false" required>
+          <p class="forgetmenot"><label><input type="checkbox" name="rememberme" id="rememberme" value="forever"> Remember Me</label></p>
+          <input type="submit" name="wp-submit" class="button button-primary button-large" value="Log In">
+          <input type="hidden" name="redirect_to" value="/wp-admin/">
+          <input type="hidden" name="testcookie" value="1">
+        </form>
+        <p id="nav"><a href="/wp-login.php?action=lostpassword">Lost your password?</a></p>
+      </div>
+      </body>
+      </html>
+
+  phpmyadmin_login:
+    status: 200
+    content_type: "text/html; charset=utf-8"
+    headers:
+      Server: "Apache/2.4.57"
+      X-Powered-By: "PHP/8.1.2"
+    body: |
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+      <title>phpMyAdmin</title>
+      <style>
+      body{font-family:-apple-system,sans-serif;background:#f5f5f5;margin:0}
+      #pma_navigation{display:none}
+      #loginform{width:340px;margin:80px auto;background:#fff;border:1px solid #ccc;
+        border-radius:4px;padding:32px;box-shadow:0 2px 4px rgba(0,0,0,.1)}
+      h1{font-size:20px;margin:0 0 24px;color:#333;text-align:center}
+      label{display:block;font-size:13px;color:#555;margin-bottom:4px}
+      input[type=text],input[type=password]{width:100%;padding:7px 10px;border:1px solid #ccc;
+        border-radius:3px;font-size:13px;margin-bottom:14px}
+      input[type=submit]{width:100%;background:#5a79a5;color:#fff;border:none;
+        padding:9px;border-radius:3px;font-size:14px;cursor:pointer}
+      .footer{text-align:center;font-size:11px;color:#999;margin-top:12px}
+      </style>
+      </head>
+      <body>
+      <div id="loginform">
+        <h1>phpMyAdmin</h1>
+        <form method="post" action="/phpmyadmin/index.php">
+          <input type="hidden" name="set_session" value="">
+          <input type="hidden" name="token" value="{{request_id .Seed}}">
+          <label>Username:</label>
+          <input type="text" name="pma_username" id="input_username" value="" autocomplete="username">
+          <label>Password:</label>
+          <input type="password" name="pma_password" id="input_password" value="" autocomplete="current-password">
+          <input type="hidden" name="server" value="1">
+          <input type="submit" value="Log in" id="input_go">
+        </form>
+        <div class="footer">phpMyAdmin 5.2.1</div>
+      </div>
+      </body>
+      </html>
+
+  jenkins_login:
+    status: 200
+    content_type: "text/html; charset=utf-8"
+    headers:
+      Server: "Jetty(10.0.18)"
+      X-Content-Type-Options: "nosniff"
+      X-Hudson: "1.395"
+      X-Jenkins: "2.440.3"
+    body: |
+      <!DOCTYPE html>
+      <html>
+      <head>
+      <meta charset="utf-8">
+      <title>Sign in [Jenkins]</title>
+      <link rel="stylesheet" href="{{cdn_pkg "@fontsource/inter" "index.css"}}">
+      <link rel="stylesheet" href="{{cdn_pkg "bootstrap-icons@1.11.3" "font/bootstrap-icons.min.css"}}">
+      <script defer src="{{cdn_pkg "chart.js@4.4.3" "dist/chart.umd.min.js"}}"></script>
+      <script defer src="{{cdn_pkg "alpinejs@3.14.1" "dist/cdn.min.js"}}"></script>
+      <style>
+      *{box-sizing:border-box}
+      body{font-family:Inter,"Segoe UI",Helvetica,Arial,sans-serif;background:#fafafa;margin:0}
+      .login-title{font-size:28px;font-weight:300;color:#333;text-align:center;padding:40px 0 20px}
+      .wrap{display:grid;grid-template-columns:380px 420px;gap:24px;justify-content:center;align-items:start}
+      .login-card,.ops-card{background:#fff;border:1px solid #ddd;
+        border-radius:4px;padding:32px;box-shadow:0 2px 6px rgba(0,0,0,.08)}
+      .ops-card{padding:20px}
+      .ops-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+      .ops-head h2{font-size:15px;margin:0;color:#333}
+      .pill{font-size:11px;background:#e8f5e9;color:#1b5e20;border:1px solid #c8e6c9;border-radius:999px;padding:3px 8px}
+      .metric-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
+      .metric{border:1px solid #eee;border-radius:4px;padding:10px;background:#fcfcfc}
+      .metric strong{display:block;font-size:20px;color:#222}
+      .metric span{font-size:11px;color:#777}
+      .job{display:flex;justify-content:space-between;font-size:12px;padding:7px 0;border-bottom:1px solid #eee}
+      .job:last-child{border-bottom:none}
+      .form-item{margin-bottom:16px}
+      label{display:block;font-size:13px;color:#555;margin-bottom:4px;font-weight:600}
+      input[type=text],input[type=password]{width:100%;padding:8px 10px;border:1px solid #ccc;
+        border-radius:3px;font-size:14px}
+      .btn-primary{width:100%;padding:10px;background:#335061;color:#fff;
+        border:none;border-radius:3px;font-size:14px;cursor:pointer;margin-top:8px}
+      .footer{text-align:center;font-size:12px;color:#999;padding:16px}
+      </style>
+      </head>
+      <body>
+      <div class="login-title">Jenkins</div>
+      <div class="wrap" x-data="{queue:{{add 2 (rand_int 6 "jenkinsq")}}, executors:{{add 3 (rand_int 8 "jenkinsex")}}, failed:{{rand_int 4 "jenkinsfail"}}}" x-init="setInterval(()=>{queue=Math.max(0,queue+Math.floor(Math.random()*3)-1); executors=3+Math.floor(Math.random()*8)},2500)">
+        <div class="login-card">
+          <form method="post" action="/j_acegi_security_check">
+            <div class="form-item">
+              <label for="j_username">Username</label>
+              <input type="text" name="j_username" id="j_username" autocomplete="username">
+            </div>
+            <div class="form-item">
+              <label for="j_password">Password</label>
+              <input type="password" name="j_password" id="j_password" autocomplete="current-password">
+            </div>
+            <input type="hidden" name="from" value="/">
+            <input type="hidden" name="Jenkins-Crumb" value="{{request_id .Seed}}">
+            <button type="submit" class="btn-primary">Sign in</button>
+          </form>
+        </div>
+        <div class="ops-card">
+          <div class="ops-head"><h2><i class="bi bi-activity"></i> Controller status</h2><span class="pill">online</span></div>
+          <div class="metric-row">
+            <div class="metric"><strong x-text="queue"></strong><span>Queued builds</span></div>
+            <div class="metric"><strong x-text="executors"></strong><span>Executors</span></div>
+            <div class="metric"><strong x-text="failed"></strong><span>Failed jobs</span></div>
+          </div>
+          <canvas id="jenkinsBuildChart" height="120"></canvas>
+          <div style="margin-top:12px">
+            <div class="job"><span>platform-api/main</span><b>#{{add 1800 (rand_int 800 "j1")}}</b></div>
+            <div class="job"><span>web-console/release</span><b>#{{add 500 (rand_int 400 "j2")}}</b></div>
+            <div class="job"><span>infra/terraform-prod</span><b>#{{add 80 (rand_int 90 "j3")}}</b></div>
+          </div>
+        </div>
+      </div>
+      <div class="footer">Jenkins 2.440.3</div>
+      <script>
+      window.addEventListener('DOMContentLoaded',()=>new Chart(document.getElementById('jenkinsBuildChart'),{type:'line',data:{labels:['10:00','10:05','10:10','10:15','10:20','10:25'],datasets:[{label:'Builds/min',data:[{{add 2 (rand_int 5 "jb1")}},{{add 5 (rand_int 7 "jb2")}},{{add 4 (rand_int 9 "jb3")}},{{add 8 (rand_int 6 "jb4")}},{{add 6 (rand_int 8 "jb5")}},{{add 3 (rand_int 10 "jb6")}}],borderColor:'#335061',backgroundColor:'rgba(51,80,97,.12)',fill:true,tension:.35}]},options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true}}}}));
+      </script>
+      </body>
+      </html>
+
+  grafana_login:
+    status: 200
+    content_type: "text/html; charset=utf-8"
+    headers:
+      Server: "{{.Version}}"
+      X-Content-Type-Options: "nosniff"
+    body: |
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width">
+      <title>Grafana</title>
+      <link rel="stylesheet" href="{{cdn_pkg "@fontsource/inter" "index.css"}}">
+      <script defer src="{{cdn_pkg "chart.js@4.4.3" "dist/chart.umd.min.js"}}"></script>
+      <script defer src="{{cdn_pkg "alpinejs@3.14.1" "dist/cdn.min.js"}}"></script>
+      <style>
+      *{box-sizing:border-box}
+      body{font-family:Inter,"Helvetica Neue",Arial,sans-serif;background:#111217;color:#d0d1d4;margin:0;
+        display:flex;align-items:center;justify-content:center;min-height:100vh}
+      .login-box{background:#181b1f;border:1px solid #292a2d;border-radius:8px;
+        padding:40px;width:360px}
+      .live-panel{margin-top:20px;border-top:1px solid #292a2d;padding-top:16px}
+      .live-row{display:flex;justify-content:space-between;font-size:12px;color:#8e8e8e;margin-bottom:8px}
+      .live-row strong{color:#d0d1d4}
+      .logo{text-align:center;margin-bottom:32px;font-size:22px;font-weight:600;color:#ff7708}
+      label{display:block;font-size:12px;color:#8e8e8e;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em}
+      input[type=text],input[type=password]{width:100%;background:#0b0c0e;border:1px solid #2c2c2c;
+        color:#d0d1d4;padding:9px 12px;border-radius:4px;font-size:14px;margin-bottom:16px}
+      button[type=submit]{width:100%;background:#ff7708;color:#fff;border:none;
+        padding:10px;border-radius:4px;font-size:14px;font-weight:600;cursor:pointer}
+      .version{text-align:center;font-size:11px;color:#555;margin-top:16px}
+      </style>
+      </head>
+      <body x-data="{datasources:{{add 3 (rand_int 5 "gds")}}, alerts:{{rand_int 6 "galerts"}}}" x-init="setInterval(()=>{alerts=Math.max(0,alerts+Math.floor(Math.random()*3)-1)},3000)">
+      <div class="login-box">
+        <div class="logo">⬡ Grafana</div>
+        <form method="post" action="/login">
+          <label>Email or username</label>
+          <input type="text" name="user" placeholder="admin" autocomplete="username">
+          <label>Password</label>
+          <input type="password" name="password" placeholder="password" autocomplete="current-password">
+          <input type="hidden" name="redirectTo" value="/d/main">
+          <button type="submit">Log in</button>
+        </form>
+        <div class="live-panel">
+          <div class="live-row"><span>Datasources</span><strong x-text="datasources"></strong></div>
+          <div class="live-row"><span>Firing alerts</span><strong x-text="alerts"></strong></div>
+          <canvas id="grafanaSpark" height="82"></canvas>
+        </div>
+        <div class="version">Grafana v10.4.2</div>
+      </div>
+      <script>
+      window.addEventListener('DOMContentLoaded',()=>new Chart(document.getElementById('grafanaSpark'),{type:'line',data:{labels:['-5m','-4m','-3m','-2m','-1m','now'],datasets:[{data:[{{add 20 (rand_int 20 "g1")}},{{add 24 (rand_int 18 "g2")}},{{add 22 (rand_int 24 "g3")}},{{add 26 (rand_int 18 "g4")}},{{add 25 (rand_int 22 "g5")}},{{add 28 (rand_int 18 "g6")}}],borderColor:'#ff7708',backgroundColor:'rgba(255,119,8,.12)',fill:true,tension:.35}]},options:{plugins:{legend:{display:false}},scales:{x:{display:false},y:{display:false}}}}));
+      </script>
+      </body>
+      </html>
+
+  # ── Runtime / debug status ────────────────────────────────────────────────
+
+  nginx_status:
+    status: 200
+    content_type: "text/plain"
+    headers:
+      Server: "nginx/1.24.0"
+    body: |
+      Active connections: {{add 12 (rand_int 88 "conn")}}
+      server accepts handled requests
+       {{add 1000000 (rand_int 9000000 "acc")}} {{add 1000000 (rand_int 9000000 "hdl")}} {{add 2000000 (rand_int 18000000 "req")}}
+      Reading: {{rand_int 8 "read"}} Writing: {{add 1 (rand_int 15 "write")}} Waiting: {{add 5 (rand_int 40 "wait")}}
+
+  apache_status:
+    status: 200
+    content_type: "text/html; charset=utf-8"
+    headers:
+      Server: "Apache/2.4.57 (Ubuntu)"
+    body: |
+      <!DOCTYPE html>
+      <html><head><title>Apache Status</title></head>
+      <body>
+      <h1>Apache Server Status for {{.Slug}}.internal</h1>
+      <dl><dt>Server Version: Apache/2.4.57 (Ubuntu) OpenSSL/3.0.2 mod_wsgi/4.9.4</dt>
+      <dt>Server Built: 2023-10-19T13:53:00</dt>
+      <dt>Current Time: Sunday, {{add 2026 0}}-05-24 10:{{add 10 (rand_int 50 "min")}}:{{add 0 (rand_int 60 "sec")}} UTC</dt>
+      <dt>Restart Time: Sunday, 2026-05-24 00:00:00 UTC</dt>
+      <dt>Parent Server Config. Generation: 2</dt>
+      <dt>Server uptime: {{add 6 (rand_int 20 "hrs")}} hours {{add 1 (rand_int 58 "mins")}} minutes</dt>
+      <dt>Total accesses: {{add 100000 (rand_int 900000 "tot")}} - Total Traffic: {{add 200 (rand_int 800 "mb")}} MB</dt>
+      <dt>CPU Usage: u{{add 1 (rand_int 5 "cpu")}} s{{rand_int 2 "scpu"}}</dt>
+      <dt>{{add 5 (rand_int 20 "rps")}} requests/sec - {{add 2 (rand_int 8 "bps")}} kB/second</dt>
+      <dt>{{add 1 (rand_int 5 "wk")}} requests currently being processed, {{add 2 (rand_int 8 "idle")}} idle workers</dt>
+      </dl>
+      <pre>__W_____WW__K_K_.___K....___...</pre>
+      <p><b>Scoreboard Key:</b> "_" Waiting, "S" Starting, "R" Reading, "W" Sending, "K" Keepalive</p>
+      </body></html>
+
+  pprof_index:
+    status: 200
+    content_type: "text/html; charset=utf-8"
+    headers:
+      Server: "{{.Version}}"
+    body: |
+      <!DOCTYPE html>
+      <html>
+      <head><title>/debug/pprof/</title></head>
+      <body>
+      /debug/pprof/<br><br>
+      Types of profiles available:
+      <table>
+      <tr><td align="right">{{add 10 (rand_int 40 "go")}}</td><td><a href="/debug/pprof/allocs">allocs</a></td><td>A sampling of all past memory allocations</td></tr>
+      <tr><td align="right">0</td><td><a href="/debug/pprof/block">block</a></td><td>Stack traces that led to blocking on synchronization primitives</td></tr>
+      <tr><td align="right">0</td><td><a href="/debug/pprof/cmdline">cmdline</a></td><td>The command line invocation of the current program</td></tr>
+      <tr><td align="right">{{add 5 (rand_int 20 "gor")}}</td><td><a href="/debug/pprof/goroutine">goroutine</a></td><td>Stack traces of all current goroutines</td></tr>
+      <tr><td align="right">{{add 10 (rand_int 40 "hp")}}</td><td><a href="/debug/pprof/heap">heap</a></td><td>A sampling of memory allocations of live objects</td></tr>
+      <tr><td align="right">0</td><td><a href="/debug/pprof/mutex">mutex</a></td><td>Stack traces of holders of contended mutexes</td></tr>
+      <tr><td align="right">0</td><td><a href="/debug/pprof/profile">profile</a></td><td>CPU profile</td></tr>
+      <tr><td align="right">{{add 20 (rand_int 50 "thr")}}</td><td><a href="/debug/pprof/threadcreate">threadcreate</a></td><td>Stack traces that led to the creation of new OS threads</td></tr>
+      <tr><td align="right">0</td><td><a href="/debug/pprof/trace">trace</a></td><td>A trace of execution of the current program</td></tr>
+      </table>
+      <p>full goroutine stack dump: <a href="/debug/pprof/goroutine?debug=2">debug=2</a></p>
+      </body>
+      </html>
+
+  laravel_ignition:
+    status: 500
+    content_type: "text/html; charset=utf-8"
+    headers:
+      Server: "Apache/2.4.57"
+      X-Powered-By: "PHP/8.2.0"
+    body: |
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+      <meta charset="utf-8">
+      <title>QueryException — Laravel</title>
+      <style>
+      *{margin:0;padding:0;box-sizing:border-box}
+      body{font-family:ui-monospace,"SF Mono","Fira Code",monospace;background:#1a1a2e;color:#e2e8f0;font-size:13px}
+      .header{background:#e02424;padding:20px 32px}
+      .header h1{font-size:18px;font-weight:600;color:#fff}
+      .header p{font-size:13px;color:#fecaca;margin-top:4px}
+      .body{padding:32px}
+      .env-block{background:#111827;border:1px solid #1f2937;border-radius:6px;padding:16px;margin-top:24px}
+      .env-block h2{font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px}
+      .env-row{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #1f2937}
+      .env-key{color:#93c5fd}
+      .env-val{color:#86efac;word-break:break-all;max-width:60%}
+      .stack{margin-top:24px;font-size:12px;color:#6b7280}
+      .stack-frame{padding:6px 0;border-bottom:1px solid #1f2937}
+      .stack-file{color:#f472b6}
+      .stack-line{color:#fbbf24}
+      </style>
+      </head>
+      <body>
+      <div class="header">
+        <h1>Illuminate\Database\QueryException</h1>
+        <p>SQLSTATE[42501]: Insufficient privilege: 7 ERROR: permission denied for table users (SQL: select * from "users" where "email" = {{sanitize .Query}} limit 1)</p>
+      </div>
+      <div class="body">
+        <div class="env-block">
+          <h2>Application Context</h2>
+          <div class="env-row"><span class="env-key">APP_ENV</span><span class="env-val">production</span></div>
+          <div class="env-row"><span class="env-key">DB_HOST</span><span class="env-val">db.{{.Slug}}.internal</span></div>
+          <div class="env-row"><span class="env-key">DB_DATABASE</span><span class="env-val">{{.Slug}}_production</span></div>
+          <div class="env-row"><span class="env-key">DB_USERNAME</span><span class="env-val">{{.Slug}}_app</span></div>
+          <div class="env-row"><span class="env-key">DB_PASSWORD</span><span class="env-val">{{.AdminPass}}</span></div>
+          <div class="env-row"><span class="env-key">APP_KEY</span><span class="env-val">base64:{{jwt_secret .Seed}}</span></div>
+          <div class="env-row"><span class="env-key">CACHE_DRIVER</span><span class="env-val">redis</span></div>
+          <div class="env-row"><span class="env-key">REDIS_PASSWORD</span><span class="env-val">{{redis_pass .Seed}}</span></div>
+        </div>
+        <div class="stack">
+          <div class="stack-frame"><span class="stack-file">vendor/laravel/framework/src/Illuminate/Database/Connection.php</span>:<span class="stack-line">760</span></div>
+          <div class="stack-frame"><span class="stack-file">vendor/laravel/framework/src/Illuminate/Database/Connection.php</span>:<span class="stack-line">720</span></div>
+          <div class="stack-frame"><span class="stack-file">app/Http/Controllers/Auth/LoginController.php</span>:<span class="stack-line">42</span></div>
+          <div class="stack-frame"><span class="stack-file">vendor/laravel/framework/src/Illuminate/Routing/Controller.php</span>:<span class="stack-line">54</span></div>
+        </div>
+      </div>
+      </body>
+      </html>
+
+  # ── Elasticsearch _cat ────────────────────────────────────────────────────
+
+  es_cat_indices:
+    status: 200
+    content_type: "text/plain; charset=utf-8"
+    headers:
+      Server: "{{.Version}}"
+      X-Elastic-Product: "Elasticsearch"
+    body: |
+      health status index                        uuid                   pri rep docs.count docs.deleted store.size pri.store.size
+      green  open   logs-{{add 2026 0}}.05       {{request_id .Seed}}   1   1  {{add 500000 (rand_int 9000000 "l1")}}          0      2.3gb          1.1gb
+      green  open   events-production            {{request_id (mul .Seed 3)}}   1   1  {{add 100000 (rand_int 800000 "l2")}}          0    890.4mb        445.2mb
+      green  open   users-{{.Slug}}              {{request_id (mul .Seed 7)}}   1   1  {{add 5000 (rand_int 50000 "l3")}}          0     12.1mb          6.0mb
+      green  open   audit-log                    {{request_id (mul .Seed 11)}}   1   1  {{add 200000 (rand_int 2000000 "l4")}}          0      1.8gb        900.3mb
+      yellow open   .kibana_1                    {{request_id (mul .Seed 13)}}   1   0      {{add 200 (rand_int 800 "l5")}}          0    640.0kb        640.0kb
+
+  # ── Collaboration / ticketing login pages ─────────────────────────────────
+
+  confluence_login:
+    status: 200
+    content_type: "text/html; charset=utf-8"
+    headers:
+      Server: "Apache-Coyote/1.1"
+      X-Confluence-Request-Time: '{{add 100 (rand_int 300 "rt")}}'
+    body: |
+      <!DOCTYPE html>
+      <html>
+      <head>
+      <meta charset="utf-8">
+      <title>Log in - Confluence</title>
+      <style>
+      body{font-family:-apple-system,sans-serif;background:#f4f5f7;margin:0;display:flex;align-items:center;justify-content:center;min-height:100vh}
+      .card{background:#fff;border-radius:3px;box-shadow:0 0 10px rgba(9,30,66,.25);padding:40px;width:400px}
+      h1{font-size:21px;font-weight:600;color:#172b4d;margin:0 0 24px;text-align:center}
+      label{display:block;font-size:12px;font-weight:600;color:#6b778c;margin-bottom:4px;text-transform:uppercase}
+      input[type=text],input[type=password]{width:100%;padding:8px 10px;border:2px solid #dfe1e6;border-radius:3px;font-size:14px;margin-bottom:16px}
+      input[type=submit]{width:100%;background:#0052cc;color:#fff;border:none;padding:10px;border-radius:3px;font-size:14px;font-weight:600;cursor:pointer}
+      .footer{text-align:center;font-size:12px;color:#6b778c;margin-top:16px}
+      </style>
+      </head>
+      <body>
+      <div class="card">
+        <h1>{{.Company}}</h1>
+        <form method="post" action="/dologin.action">
+          <input type="hidden" name="os_cookie" value="true">
+          <input type="hidden" name="atl_token" value="{{request_id .Seed}}">
+          <label>Username</label>
+          <input type="text" name="os_username" autocomplete="username">
+          <label>Password</label>
+          <input type="password" name="os_password" autocomplete="current-password">
+          <input type="hidden" name="os_destination" value="/">
+          <input type="submit" value="Log In">
+        </form>
+        <div class="footer">Confluence Data Center 8.5.4</div>
+      </div>
+      </body>
+      </html>
+
+  jira_login:
+    status: 200
+    content_type: "text/html; charset=utf-8"
+    headers:
+      Server: "Apache-Coyote/1.1"
+      X-Jira-Request-Id: "{{request_id .Seed}}"
+    body: |
+      <!DOCTYPE html>
+      <html>
+      <head>
+      <meta charset="utf-8">
+      <title>Log in - Jira</title>
+      <link rel="stylesheet" href="{{cdn_pkg "@fontsource/inter" "index.css"}}">
+      <link rel="stylesheet" href="{{cdn_pkg "bootstrap-icons@1.11.3" "font/bootstrap-icons.min.css"}}">
+      <script defer src="{{cdn_pkg "chart.js@4.4.3" "dist/chart.umd.min.js"}}"></script>
+      <script defer src="{{cdn_pkg "alpinejs@3.14.1" "dist/cdn.min.js"}}"></script>
+      <style>
+      body{font-family:Inter,-apple-system,sans-serif;background:#f4f5f7;margin:0;display:flex;align-items:center;justify-content:center;min-height:100vh}
+      .wrap{display:grid;grid-template-columns:400px 440px;gap:24px;align-items:start}
+      .card{background:#fff;border-radius:3px;box-shadow:0 0 10px rgba(9,30,66,.25);padding:40px;width:400px}
+      .dash{background:#fff;border:1px solid #dfe1e6;border-radius:3px;box-shadow:0 0 10px rgba(9,30,66,.12);padding:22px;width:440px}
+      .dash h2{font-size:16px;color:#172b4d;margin:0 0 14px}
+      .issue-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
+      .issue{background:#f4f5f7;border:1px solid #dfe1e6;border-radius:3px;padding:10px}
+      .issue strong{font-size:22px;color:#172b4d;display:block}
+      .issue span{font-size:11px;color:#6b778c;text-transform:uppercase}
+      .activity{font-size:12px;color:#42526e;margin-top:14px}
+      .activity div{display:flex;justify-content:space-between;border-top:1px solid #ebecf0;padding:8px 0}
+      h1{font-size:21px;font-weight:600;color:#172b4d;margin:0 0 24px;text-align:center}
+      label{display:block;font-size:12px;font-weight:600;color:#6b778c;margin-bottom:4px;text-transform:uppercase}
+      input[type=text],input[type=password]{width:100%;padding:8px 10px;border:2px solid #dfe1e6;border-radius:3px;font-size:14px;margin-bottom:16px}
+      input[type=submit]{width:100%;background:#0052cc;color:#fff;border:none;padding:10px;border-radius:3px;font-size:14px;font-weight:600;cursor:pointer}
+      .footer{text-align:center;font-size:12px;color:#6b778c;margin-top:16px}
+      </style>
+      </head>
+      <body>
+      <div class="wrap" x-data="{open:{{add 120 (rand_int 90 "jiraopen")}}, sprint:{{add 24 (rand_int 20 "jirasprint")}}, incidents:{{rand_int 7 "jirainc"}}}" x-init="setInterval(()=>{open+=Math.floor(Math.random()*5)-2; sprint+=Math.floor(Math.random()*3)-1},3000)">
+        <div class="card">
+          <h1>{{.Company}}</h1>
+          <form method="post" action="/login.jsp">
+            <input type="hidden" name="atl_token" value="{{request_id .Seed}}">
+            <label>Username</label>
+            <input type="text" name="os_username" autocomplete="username">
+            <label>Password</label>
+            <input type="password" name="os_password" autocomplete="current-password">
+            <input type="hidden" name="os_destination" value="/secure/Dashboard.jspa">
+            <input type="submit" value="Log In">
+          </form>
+          <div class="footer">Jira Software 9.12.3</div>
+        </div>
+        <div class="dash">
+          <h2><i class="bi bi-kanban"></i> Project activity</h2>
+          <div class="issue-grid">
+            <div class="issue"><strong x-text="open"></strong><span>Open issues</span></div>
+            <div class="issue"><strong x-text="sprint"></strong><span>In sprint</span></div>
+            <div class="issue"><strong x-text="incidents"></strong><span>Incidents</span></div>
+          </div>
+          <canvas id="jiraVelocityChart" height="120"></canvas>
+          <div class="activity">
+            <div><span>SEC-{{.TicketID}} public endpoint review</span><b>In Progress</b></div>
+            <div><span>PLAT-{{add 300 (rand_int 700 "jp1")}} auth hardening</span><b>Review</b></div>
+            <div><span>OPS-{{add 800 (rand_int 700 "jp2")}} release smoke tests</span><b>Done</b></div>
+          </div>
+        </div>
+      </div>
+      <script>
+      window.addEventListener('DOMContentLoaded',()=>new Chart(document.getElementById('jiraVelocityChart'),{type:'bar',data:{labels:['Mon','Tue','Wed','Thu','Fri'],datasets:[{label:'Done',data:[{{add 4 (rand_int 8 "jd1")}},{{add 3 (rand_int 8 "jd2")}},{{add 7 (rand_int 8 "jd3")}},{{add 5 (rand_int 8 "jd4")}},{{add 6 (rand_int 8 "jd5")}}],backgroundColor:'#0052cc'}]},options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true}}}}));
+      </script>
+      </body>
+      </html>
+
+  zimbra_login:
+    status: 200
+    content_type: "text/html; charset=utf-8"
+    headers:
+      Server: "Apache/2.4.57"
+    body: |
+      <!DOCTYPE html>
+      <html>
+      <head>
+      <meta charset="utf-8">
+      <title>Zimbra Web Client Sign In</title>
+      <style>
+      body{font-family:-apple-system,Arial,sans-serif;background:#2c3e50;margin:0;display:flex;align-items:center;justify-content:center;min-height:100vh}
+      .card{background:#fff;border-radius:4px;box-shadow:0 4px 20px rgba(0,0,0,.3);padding:40px 48px;width:400px}
+      h1{font-size:24px;color:#1a73e8;margin:0 0 8px;font-weight:300}
+      .sub{font-size:13px;color:#888;margin-bottom:28px}
+      label{display:block;font-size:13px;color:#555;margin-bottom:4px}
+      input[type=text],input[type=password]{width:100%;padding:9px 12px;border:1px solid #dadce0;border-radius:4px;font-size:14px;margin-bottom:16px}
+      input[type=submit]{width:100%;background:#1a73e8;color:#fff;border:none;padding:10px;border-radius:4px;font-size:14px;cursor:pointer}
+      .footer{text-align:center;font-size:11px;color:#aaa;margin-top:16px}
+      </style>
+      </head>
+      <body>
+      <div class="card">
+        <h1>Zimbra</h1>
+        <div class="sub">{{.Company}} Collaboration Suite</div>
+        <form method="post" action="/zimbra/">
+          <label>Username</label>
+          <input type="text" name="username" autocomplete="username">
+          <label>Password</label>
+          <input type="password" name="password" autocomplete="current-password">
+          <input type="hidden" name="client" value="modern">
+          <input type="submit" value="Sign In">
+        </form>
+        <div class="footer">Zimbra Collaboration 10.0.8</div>
+      </div>
+      </body>
+      </html>
+
+  sidekiq_web:
+    status: 200
+    content_type: "text/html; charset=utf-8"
+    headers:
+      Server: "puma 6.4.0"
+      X-Content-Type-Options: "nosniff"
+    body: |
+      <!DOCTYPE html>
+      <html>
+      <head>
+      <meta charset="utf-8">
+      <title>Sidekiq</title>
+      <link rel="stylesheet" href="{{cdn_pkg "@fontsource/inter" "index.css"}}">
+      <script defer src="{{cdn_pkg "chart.js@4.4.3" "dist/chart.umd.min.js"}}"></script>
+      <script defer src="{{cdn_pkg "alpinejs@3.14.1" "dist/cdn.min.js"}}"></script>
+      <style>
+      body{font-family:Inter,-apple-system,sans-serif;background:#f8f8f8;margin:0}
+      .navbar{background:#222;color:#fff;padding:12px 24px;display:flex;align-items:center;gap:24px}
+      .navbar a{color:#ccc;text-decoration:none;font-size:14px}
+      .navbar .brand{font-size:18px;font-weight:700;color:#bb0000;margin-right:16px}
+      .main{padding:24px}
+      .stat-row{display:flex;gap:16px;margin-bottom:24px}
+      .stat{background:#fff;border:1px solid #ddd;border-radius:4px;padding:16px 24px;text-align:center}
+      .stat .num{font-size:32px;font-weight:700;color:#333}
+      .stat .lbl{font-size:12px;color:#888;margin-top:4px}
+      .stat.red .num{color:#c00}
+      table{width:100%;background:#fff;border:1px solid #ddd;border-collapse:collapse;font-size:13px}
+      th,td{padding:8px 12px;border-bottom:1px solid #f0f0f0;text-align:left}
+      th{background:#f8f8f8;font-weight:600;color:#555}
+      </style>
+      </head>
+      <body x-data="{processed:{{add 100000 (rand_int 900000 "proc")}}, failures:{{rand_int 12 "fail"}}, busy:{{add 1 (rand_int 4 "busy")}}, enqueued:{{add 2 (rand_int 8 "enq")}}}" x-init="setInterval(()=>{processed+=Math.floor(Math.random()*9); enqueued=Math.max(0,enqueued+Math.floor(Math.random()*5)-2); busy=1+Math.floor(Math.random()*4)},2500)">
+      <nav class="navbar">
+        <span class="brand">Sidekiq</span>
+        <a href="/sidekiq">Dashboard</a>
+        <a href="/sidekiq/busy">Busy</a>
+        <a href="/sidekiq/queues">Queues</a>
+        <a href="/sidekiq/retries">Retries</a>
+        <a href="/sidekiq/scheduled">Scheduled</a>
+        <a href="/sidekiq/dead">Dead</a>
+      </nav>
+      <div class="main">
+        <div class="stat-row">
+          <div class="stat"><div class="num" x-text="processed"></div><div class="lbl">Processed</div></div>
+          <div class="stat red"><div class="num" x-text="failures"></div><div class="lbl">Failures</div></div>
+          <div class="stat"><div class="num" x-text="busy"></div><div class="lbl">Busy</div></div>
+          <div class="stat"><div class="num">{{add 1 (rand_int 3 "proc2")}}</div><div class="lbl">Processes</div></div>
+          <div class="stat"><div class="num" x-text="enqueued"></div><div class="lbl">Enqueued</div></div>
+          <div class="stat"><div class="num">{{rand_int 3 "sched"}}</div><div class="lbl">Scheduled</div></div>
+          <div class="stat"><div class="num">{{rand_int 5 "retry"}}</div><div class="lbl">Retries</div></div>
+        </div>
+        <table>
+          <thead><tr><th>Queue</th><th>Size</th><th>Latency</th></tr></thead>
+          <tbody>
+            <tr><td>default</td><td>{{rand_int 8 "qd"}}</td><td>0.01</td></tr>
+            <tr><td>mailers</td><td>{{rand_int 3 "qm"}}</td><td>0.00</td></tr>
+            <tr><td>exports</td><td>{{rand_int 2 "qe"}}</td><td>0.04</td></tr>
+          </tbody>
+        </table>
+        <div style="background:#fff;border:1px solid #ddd;margin-top:20px;padding:16px"><canvas id="sidekiqChart" height="90"></canvas></div>
+      </div>
+      <script>
+      window.addEventListener('DOMContentLoaded',()=>new Chart(document.getElementById('sidekiqChart'),{type:'bar',data:{labels:['default','mailers','exports','critical'],datasets:[{label:'Latency ms',data:[{{add 10 (rand_int 30 "sq1")}},{{add 4 (rand_int 20 "sq2")}},{{add 18 (rand_int 40 "sq3")}},{{add 2 (rand_int 10 "sq4")}}],backgroundColor:'#bb0000'}]},options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true}}}}));
+      </script>
+      </body>
+      </html>
+
+  jupyter_tree:
+    status: 200
+    content_type: "text/html; charset=utf-8"
+    headers:
+      Server: "tornado/6.4"
+    body: |
+      <!DOCTYPE html>
+      <html>
+      <head>
+      <meta charset="utf-8">
+      <title>Home Page - Select or create a notebook</title>
+      <style>
+      body{font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;font-size:13px;background:#fff;margin:0}
+      .navbar{background:#f5f5f5;border-bottom:1px solid #e7e7e7;padding:8px 15px;display:flex;align-items:center;gap:16px}
+      .navbar .brand{font-size:20px;font-weight:700;color:#777}
+      .container{padding:24px}
+      h3{font-size:16px;color:#333;margin-bottom:12px}
+      .list-group{border:1px solid #ddd;border-radius:4px;overflow:hidden}
+      .list-item{display:flex;align-items:center;padding:8px 12px;border-bottom:1px solid #eee;font-size:13px}
+      .list-item:last-child{border-bottom:none}
+      .list-item a{color:#337ab7;text-decoration:none}
+      .list-item .modified{margin-left:auto;font-size:11px;color:#aaa}
+      .toolbar{margin-bottom:12px}
+      .btn{padding:4px 10px;border:1px solid #ccc;border-radius:3px;background:#fff;font-size:12px;cursor:pointer;color:#333}
+      .btn-primary{background:#337ab7;border-color:#337ab7;color:#fff}
+      </style>
+      </head>
+      <body>
+      <nav class="navbar">
+        <span class="brand">&#127381; Jupyter</span>
+        <a href="/tree">Files</a>
+        <a href="/tree#running">Running</a>
+        <a href="/tree#clusters">Clusters</a>
+      </nav>
+      <div class="container">
+        <div class="toolbar">
+          <button class="btn btn-primary">New &#9660;</button>
+          <button class="btn">Upload</button>
+          <button class="btn">Refresh</button>
+        </div>
+        <div class="list-group">
+          <div class="list-item"><a href="/notebooks/analysis.ipynb">analysis.ipynb</a><span class="modified">2026-05-20</span></div>
+          <div class="list-item"><a href="/notebooks/model_train.ipynb">model_train.ipynb</a><span class="modified">2026-05-18</span></div>
+          <div class="list-item"><a href="/notebooks/data_export.ipynb">data_export.ipynb</a><span class="modified">2026-05-15</span></div>
+          <div class="list-item"><a href="/tree/data">data/</a><span class="modified">2026-05-12</span></div>
+        </div>
+      </div>
+      </body>
+      </html>
+
+  # ── DevOps / container / CI dashboards ───────────────────────────────────
+
+  django_admin_login:
+    status: 200
+    content_type: "text/html; charset=utf-8"
+    headers:
+      Server: "WSGIServer/0.2 CPython/3.11.8"
+      X-Frame-Options: "DENY"
+      X-Content-Type-Options: "nosniff"
+      Referrer-Policy: "same-origin"
+    body: |
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+      <meta charset="utf-8">
+      <title>Log in | Django site admin</title>
+      <style>
+      body{margin:0;padding:0;font-family:"Roboto","Lucida Grande","DejaVu Sans",Verdana,Arial,sans-serif;font-size:13px;color:#333}
+      #header{background:#417690;color:#fff;padding:10px 40px;display:flex;align-items:center}
+      #header a{color:#fff;text-decoration:none;font-size:18px;font-weight:400}
+      #content{margin:0 auto;max-width:420px;padding-top:60px}
+      .aligned label{display:block;margin-bottom:4px;font-weight:600;color:#666}
+      .aligned input[type=text],.aligned input[type=password]{width:100%;padding:8px 10px;border:1px solid #ccc;border-radius:4px;font-size:14px;box-sizing:border-box}
+      input[type=submit]{background:#417690;color:#fff;border:none;padding:10px 20px;border-radius:4px;font-size:14px;cursor:pointer;width:100%;margin-top:20px}
+      input[type=submit]:hover{background:#205067}
+      h1{font-size:24px;font-weight:300;color:#417690;margin-bottom:24px}
+      </style>
+      </head>
+      <body>
+      <div id="header"><a href="/admin/">Django administration</a></div>
+      <div id="content">
+        <h1>Log in</h1>
+        <form method="post" action="/admin/login/?next=/admin/">
+          <input type="hidden" name="csrfmiddlewaretoken" value="{{api_key .Seed}}">
+          <div class="aligned">
+            <label for="id_username">Username:</label>
+            <input type="text" name="username" autofocus id="id_username" autocomplete="username">
+          </div>
+          <div class="aligned" style="margin-top:12px">
+            <label for="id_password">Password:</label>
+            <input type="password" name="password" id="id_password" autocomplete="current-password">
+          </div>
+          <input type="submit" value="Log in">
+        </form>
+      </div>
+      </body>
+      </html>
+
+  prometheus_ui:
+    status: 200
+    content_type: "text/html; charset=utf-8"
+    headers:
+      Server: "Prometheus/2.51.2"
+    body: |
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+      <meta charset="utf-8">
+      <title>Prometheus Time Series Collection and Processing Server</title>
+      <link rel="stylesheet" href="{{cdn_pkg "@fontsource/inter" "index.css"}}">
+      <script defer src="{{cdn_pkg "chart.js@4.4.3" "dist/chart.umd.min.js"}}"></script>
+      <script defer src="{{cdn_pkg "alpinejs@3.14.1" "dist/cdn.min.js"}}"></script>
+      <style>
+      body{margin:0;font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;background:#fff;color:#333}
+      .navbar{background:#e6522c;padding:8px 16px;display:flex;align-items:center;gap:20px}
+      .navbar-brand{color:#fff;font-size:18px;font-weight:700;text-decoration:none}
+      .navbar a{color:rgba(255,255,255,0.85);text-decoration:none;font-size:14px}
+      .container{max-width:1140px;margin:0 auto;padding:20px}
+      .panel{border:1px solid #e0e0e0;border-radius:4px;margin-bottom:20px}
+      .panel-heading{background:#f5f5f5;padding:10px 15px;font-weight:600;border-bottom:1px solid #e0e0e0;font-size:14px}
+      .panel-body{padding:15px}
+      textarea{width:100%;height:80px;font-family:monospace;font-size:13px;border:1px solid #ccc;border-radius:3px;padding:8px;box-sizing:border-box}
+      .btn{display:inline-block;padding:6px 14px;border:none;border-radius:3px;cursor:pointer;font-size:13px}
+      .btn-primary{background:#e6522c;color:#fff}
+      .btn-default{background:#f5f5f5;color:#333;border:1px solid #ccc}
+      table{width:100%;border-collapse:collapse;font-size:13px}
+      th{background:#f5f5f5;padding:8px 10px;text-align:left;border-bottom:2px solid #ddd}
+      td{padding:8px 10px;border-bottom:1px solid #eee;font-family:monospace}
+      .metric{color:#e6522c}
+      </style>
+      </head>
+      <body x-data="{targets:{{add 12 (rand_int 8 "ptargets")}}, series:{{add 140000 (rand_int 80000 "pseries")}}}" x-init="setInterval(()=>{series+=Math.floor(Math.random()*2000)-800},2500)">
+      <nav class="navbar">
+        <a class="navbar-brand" href="/">Prometheus</a>
+        <a href="/graph">Graph</a>
+        <a href="/alerts">Alerts</a>
+        <a href="/status">Status</a>
+        <a href="/flags">Flags</a>
+        <a href="/config">Configuration</a>
+        <a href="/targets">Targets</a>
+      </nav>
+      <div class="container">
+        <div class="panel">
+          <div class="panel-heading">Expression</div>
+          <div class="panel-body">
+            <textarea placeholder="Enter expression...">up</textarea>
+            <div style="margin-top:8px;display:flex;gap:8px;align-items:center">
+              <button class="btn btn-primary">Execute</button>
+              <button class="btn btn-default">Add Graph</button>
+              <span style="font-size:12px;color:#888">targets=<b x-text="targets"></b> series=<b x-text="series"></b></span>
+            </div>
+          </div>
+        </div>
+        <div class="panel"><div class="panel-heading">Graph</div><div class="panel-body"><canvas id="promChart" height="100"></canvas></div></div>
+        <div class="panel">
+          <div class="panel-heading">Table</div>
+          <div class="panel-body">
+            <table>
+              <thead><tr><th>Element</th><th>Value</th></tr></thead>
+              <tbody>
+                <tr><td class="metric">up{instance="localhost:9090",job="prometheus"}</td><td>1</td></tr>
+                <tr><td class="metric">up{instance="localhost:9091",job="app"}</td><td>1</td></tr>
+                <tr><td class="metric">up{instance="localhost:3000",job="grafana"}</td><td>1</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <script>
+      window.addEventListener('DOMContentLoaded',()=>new Chart(document.getElementById('promChart'),{type:'line',data:{labels:['-5m','-4m','-3m','-2m','-1m','now'],datasets:[{label:'http_requests_total',data:[{{add 200 (rand_int 80 "pr1")}},{{add 260 (rand_int 90 "pr2")}},{{add 300 (rand_int 70 "pr3")}},{{add 280 (rand_int 100 "pr4")}},{{add 330 (rand_int 80 "pr5")}},{{add 360 (rand_int 90 "pr6")}}],borderColor:'#e6522c',backgroundColor:'rgba(230,82,44,.12)',fill:true,tension:.3}]},options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true}}}}));
+      </script>
+      </body>
+      </html>
+
+  swagger_ui_page:
+    status: 200
+    content_type: "text/html; charset=utf-8"
+    headers:
+      Server: "nginx/1.25.3"
+    body: |
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+      <meta charset="utf-8">
+      <title>Swagger UI</title>
+      <style>
+      body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#fafafa}
+      .topbar{background:#1b1b1b;padding:10px 16px;display:flex;align-items:center}
+      .topbar-brand{color:#fff;font-size:18px;font-weight:700;letter-spacing:0.3px}
+      .topbar-brand span{color:#85ea2d}
+      .info-block{background:#fff;border:1px solid #d9d9d9;border-radius:4px;padding:20px 24px;margin:16px;max-width:900px}
+      .info-block h2{font-size:22px;color:#3b4151;margin:0 0 6px}
+      .info-block .version{background:#89bf04;color:#fff;padding:2px 8px;border-radius:2px;font-size:12px;font-weight:700}
+      .info-block p{color:#3b4151;font-size:14px;margin:10px 0 0}
+      .scheme-container{background:#fff;border:1px solid #d9d9d9;border-radius:4px;padding:12px 24px;margin:0 16px 16px;max-width:900px}
+      .opblock{border:1px solid;border-radius:4px;margin:0 16px 10px;max-width:900px;overflow:hidden}
+      .opblock.get{border-color:#61affe;background:rgba(97,175,254,0.1)}
+      .opblock.post{border-color:#49cc90;background:rgba(73,204,144,0.1)}
+      .opblock.put{border-color:#fca130;background:rgba(252,161,48,0.1)}
+      .opblock.delete{border-color:#f93e3e;background:rgba(249,62,62,0.1)}
+      .opblock-summary{display:flex;align-items:center;padding:8px 12px;cursor:pointer;gap:12px}
+      .http-method{color:#fff;padding:4px 10px;border-radius:3px;font-size:12px;font-weight:700;min-width:60px;text-align:center}
+      .get .http-method{background:#61affe}
+      .post .http-method{background:#49cc90}
+      .put .http-method{background:#fca130}
+      .delete .http-method{background:#f93e3e}
+      .opblock-path{font-size:16px;font-family:monospace;font-weight:600;color:#3b4151}
+      .opblock-desc{color:#3b4151;font-size:13px;margin-left:auto}
+      </style>
+      </head>
+      <body>
+      <div class="topbar"><span class="topbar-brand"><span>swagger</span></span></div>
+      <div class="info-block">
+        <h2>API Docs <span class="version">v3.0.0</span></h2>
+        <p>Internal REST API — <a href="/api/v1/openapi.json">/api/v1/openapi.json</a></p>
+      </div>
+      <div class="scheme-container"><b>Schemes:</b> https</div>
+      <div class="opblock get">
+        <div class="opblock-summary"><span class="http-method">GET</span><span class="opblock-path">/api/v1/users</span><span class="opblock-desc">List users</span></div>
+      </div>
+      <div class="opblock post">
+        <div class="opblock-summary"><span class="http-method">POST</span><span class="opblock-path">/api/v1/users</span><span class="opblock-desc">Create user</span></div>
+      </div>
+      <div class="opblock get">
+        <div class="opblock-summary"><span class="http-method">GET</span><span class="opblock-path">/api/v1/users/{id}</span><span class="opblock-desc">Get user by ID</span></div>
+      </div>
+      <div class="opblock put">
+        <div class="opblock-summary"><span class="http-method">PUT</span><span class="opblock-path">/api/v1/users/{id}</span><span class="opblock-desc">Update user</span></div>
+      </div>
+      <div class="opblock delete">
+        <div class="opblock-summary"><span class="http-method">DELETE</span><span class="opblock-path">/api/v1/users/{id}</span><span class="opblock-desc">Delete user</span></div>
+      </div>
+      <div class="opblock get">
+        <div class="opblock-summary"><span class="http-method">GET</span><span class="opblock-path">/api/v1/products</span><span class="opblock-desc">List products</span></div>
+      </div>
+      </body>
+      </html>
+
+  vault_login:
+    status: 200
+    content_type: "text/html; charset=utf-8"
+    headers:
+      X-Vault-Request: "true"
+      Cache-Control: "no-store"
+    body: |
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+      <meta charset="utf-8">
+      <title>Sign In | Vault</title>
+      <style>
+      *{box-sizing:border-box}
+      body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#1a1a2e;color:#e0e0e0;min-height:100vh;display:flex;flex-direction:column}
+      .topbar{background:#0d0d1a;padding:12px 24px;display:flex;align-items:center}
+      .topbar .logo{color:#f5a623;font-size:22px;font-weight:700;letter-spacing:1px}
+      .topbar .version{color:#666;font-size:12px;margin-left:10px}
+      .main{flex:1;display:flex;align-items:center;justify-content:center;padding:40px 20px}
+      .card{background:#252540;border:1px solid #333;border-radius:8px;padding:40px;width:100%;max-width:420px}
+      .card h2{margin:0 0 8px;font-size:22px;font-weight:600;color:#fff}
+      .card p{margin:0 0 28px;color:#888;font-size:14px}
+      .tabs{display:flex;margin-bottom:24px;border:1px solid #444;border-radius:6px;overflow:hidden}
+      .tab{flex:1;padding:8px;text-align:center;cursor:pointer;font-size:13px;background:#1e1e38;color:#aaa;border:none}
+      .tab.active{background:#f5a623;color:#000;font-weight:600}
+      label{display:block;font-size:13px;color:#aaa;margin-bottom:6px}
+      input[type=text],input[type=password]{width:100%;padding:10px 12px;background:#1a1a2e;border:1px solid #444;border-radius:4px;color:#e0e0e0;font-size:14px;margin-bottom:16px;outline:none}
+      .btn{width:100%;padding:12px;background:#f5a623;color:#000;border:none;border-radius:4px;font-size:15px;font-weight:600;cursor:pointer}
+      .btn:hover{background:#e0962a}
+      .footer{text-align:center;padding:16px;color:#555;font-size:12px}
+      </style>
+      </head>
+      <body>
+      <div class="topbar">
+        <span class="logo">&#x1F512; Vault</span>
+        <span class="version">v1.16.2</span>
+      </div>
+      <div class="main">
+        <div class="card">
+          <h2>Sign in to Vault</h2>
+          <p>Select a sign-in method.</p>
+          <div class="tabs">
+            <button class="tab active">Token</button>
+            <button class="tab">Username</button>
+            <button class="tab">OIDC</button>
+            <button class="tab">LDAP</button>
+          </div>
+          <form method="post" action="/v1/auth/token/login">
+            <label>Token</label>
+            <input type="password" name="token" placeholder="hvs.XXXXXX..." autocomplete="off">
+            <button type="submit" class="btn">Sign In</button>
+          </form>
+        </div>
+      </div>
+      <div class="footer">HashiCorp Vault v1.16.2</div>
+      </body>
+      </html>
+
+  k8s_dashboard:
+    status: 200
+    content_type: "text/html; charset=utf-8"
+    headers:
+      Server: "Kubernetes Dashboard"
+      X-Content-Type-Options: "nosniff"
+    body: |
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+      <meta charset="utf-8">
+      <title>Kubernetes Dashboard</title>
+      <link rel="stylesheet" href="{{cdn_pkg "@fontsource/roboto" "index.css"}}">
+      <link rel="stylesheet" href="{{cdn_pkg "bootstrap-icons@1.11.3" "font/bootstrap-icons.min.css"}}">
+      <script defer src="{{cdn_pkg "chart.js@4.4.3" "dist/chart.umd.min.js"}}"></script>
+      <script defer src="{{cdn_pkg "alpinejs@3.14.1" "dist/cdn.min.js"}}"></script>
+      <style>
+      *{box-sizing:border-box;margin:0;padding:0}
+      body{font-family:Roboto,"Helvetica Neue",Arial,sans-serif;background:#f5f5f5;color:#333}
+      .toolbar{background:#326ce5;color:#fff;padding:0 16px;height:64px;display:flex;align-items:center;gap:16px}
+      .toolbar-logo{font-size:20px;font-weight:500}
+      .toolbar-spacer{flex:1}
+      .toolbar-icon{width:36px;height:36px;border-radius:50%;background:#fff;color:#326ce5;display:flex;align-items:center;justify-content:center;font-weight:700}
+      .sidenav{position:fixed;left:0;top:64px;bottom:0;width:240px;background:#fff;border-right:1px solid #e0e0e0;overflow-y:auto}
+      .sidenav-hdr{padding:8px 16px;font-size:11px;font-weight:600;color:#757575;text-transform:uppercase;letter-spacing:0.8px}
+      .sidenav-item{padding:10px 16px 10px 24px;font-size:14px;color:#333;display:block;text-decoration:none}
+      .sidenav-item:hover,.sidenav-item.active{background:#e8f0fe;color:#326ce5}
+      .content{margin-left:240px;padding:24px}
+      .card{background:#fff;border-radius:4px;box-shadow:0 1px 3px rgba(0,0,0,0.12);overflow:hidden;margin-bottom:20px}
+      .card-header{padding:16px 24px;border-bottom:1px solid #e0e0e0;font-weight:500;font-size:15px;display:flex;align-items:center;justify-content:space-between}
+      .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:20px}
+      .stat{background:#fff;border-radius:4px;box-shadow:0 1px 3px rgba(0,0,0,0.12);padding:16px}
+      .stat strong{display:block;font-size:24px;font-weight:500;color:#326ce5}
+      .stat span{font-size:12px;color:#757575;text-transform:uppercase}
+      table{width:100%;border-collapse:collapse;font-size:13px}
+      th{padding:10px 16px;text-align:left;font-weight:500;color:#757575;border-bottom:2px solid #e0e0e0;background:#fafafa}
+      td{padding:10px 16px;border-bottom:1px solid #f0f0f0}
+      .chip{display:inline-block;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:500}
+      .chip-run{background:#e8f5e9;color:#388e3c}
+      .chip-pend{background:#fff8e1;color:#f57f17}
+      .ns{background:#e8f0fe;color:#326ce5;padding:2px 8px;border-radius:3px;font-size:12px}
+      .btn{background:#326ce5;color:#fff;border:none;padding:6px 14px;border-radius:4px;font-size:13px;cursor:pointer;font-weight:500}
+      </style>
+      </head>
+      <body x-data="{pods:{{add 24 (rand_int 18 "k8pods")}}, cpu:{{add 42 (rand_int 22 "k8cpu")}}, mem:{{add 58 (rand_int 18 "k8mem")}}, restarts:{{rand_int 5 "k8rest"}}}" x-init="setInterval(()=>{cpu=Math.min(96,Math.max(12,cpu+Math.floor(Math.random()*7)-3));mem=Math.min(98,Math.max(25,mem+Math.floor(Math.random()*5)-2));pods+=Math.floor(Math.random()*3)-1},2500)">
+      <div class="toolbar">
+        <span class="toolbar-logo">&#x2388; Kubernetes Dashboard</span>
+        <div class="toolbar-spacer"></div>
+        <div class="toolbar-icon">A</div>
+      </div>
+      <nav class="sidenav">
+        <div class="sidenav-hdr">Cluster</div>
+        <a class="sidenav-item active" href="/#!/overview">Overview</a>
+        <a class="sidenav-item" href="/#!/node">Nodes</a>
+        <a class="sidenav-item" href="/#!/namespace">Namespaces</a>
+        <a class="sidenav-item" href="/#!/persistentvolume">Persistent Volumes</a>
+        <div class="sidenav-hdr">Workloads</div>
+        <a class="sidenav-item" href="/#!/deployment">Deployments</a>
+        <a class="sidenav-item" href="/#!/pod">Pods</a>
+        <a class="sidenav-item" href="/#!/statefulset">Stateful Sets</a>
+        <a class="sidenav-item" href="/#!/daemonset">Daemon Sets</a>
+        <div class="sidenav-hdr">Config</div>
+        <a class="sidenav-item" href="/#!/secret">Secrets</a>
+        <a class="sidenav-item" href="/#!/configmap">Config Maps</a>
+      </nav>
+      <div class="content">
+        <h2 style="margin-bottom:20px;font-size:20px;font-weight:400">Workloads</h2>
+        <div class="stats">
+          <div class="stat"><strong x-text="pods"></strong><span>Pods</span></div>
+          <div class="stat"><strong><span x-text="cpu"></span>%</strong><span>Cluster CPU</span></div>
+          <div class="stat"><strong><span x-text="mem"></span>%</strong><span>Memory</span></div>
+          <div class="stat"><strong x-text="restarts"></strong><span>Restarts</span></div>
+        </div>
+        <div class="card">
+          <div class="card-header">Pods <button class="btn">+ Create</button></div>
+          <table>
+            <thead><tr><th>Name</th><th>Namespace</th><th>Status</th><th>Restarts</th><th>Age</th></tr></thead>
+            <tbody>
+              <tr><td>api-deployment-7d8f9c-xk2p4</td><td><span class="ns">production</span></td><td><span class="chip chip-run">Running</span></td><td>0</td><td>12d</td></tr>
+              <tr><td>api-deployment-7d8f9c-mn9q1</td><td><span class="ns">production</span></td><td><span class="chip chip-run">Running</span></td><td>0</td><td>12d</td></tr>
+              <tr><td>redis-0</td><td><span class="ns">production</span></td><td><span class="chip chip-run">Running</span></td><td>1</td><td>30d</td></tr>
+              <tr><td>worker-job-{{slug_id "w" .Seed}}</td><td><span class="ns">default</span></td><td><span class="chip chip-pend">Pending</span></td><td>0</td><td>2m</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="card">
+          <div class="card-header">Cluster resource usage <span style="font-size:12px;color:#757575">live</span></div>
+          <div style="padding:16px"><canvas id="k8ResourceChart" height="90"></canvas></div>
+        </div>
+      </div>
+      <script>
+      window.addEventListener('DOMContentLoaded',()=>new Chart(document.getElementById('k8ResourceChart'),{type:'line',data:{labels:['-25m','-20m','-15m','-10m','-5m','now'],datasets:[{label:'CPU %',data:[{{add 35 (rand_int 20 "kc1")}},{{add 40 (rand_int 18 "kc2")}},{{add 39 (rand_int 22 "kc3")}},{{add 44 (rand_int 19 "kc4")}},{{add 42 (rand_int 25 "kc5")}},{{add 45 (rand_int 18 "kc6")}}],borderColor:'#326ce5',backgroundColor:'rgba(50,108,229,.12)',fill:true,tension:.35},{label:'Memory %',data:[{{add 48 (rand_int 18 "km1")}},{{add 52 (rand_int 18 "km2")}},{{add 57 (rand_int 16 "km3")}},{{add 54 (rand_int 20 "km4")}},{{add 60 (rand_int 18 "km5")}},{{add 58 (rand_int 18 "km6")}}],borderColor:'#00897b',backgroundColor:'rgba(0,137,123,.08)',fill:true,tension:.35}]},options:{plugins:{legend:{position:'bottom'}},scales:{y:{beginAtZero:true,max:100}}}}));
+      </script>
+      </body>
+      </html>
+
+  pgadmin_login:
+    status: 200
+    content_type: "text/html; charset=utf-8"
+    headers:
+      Server: "gunicorn"
+      X-pgA-Content-Type: "pgAdmin4"
+    body: |
+      <!DOCTYPE html>
+      <html>
+      <head>
+      <meta charset="utf-8">
+      <title>pgAdmin 4</title>
+      <style>
+      *{box-sizing:border-box}
+      body{margin:0;font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;background:linear-gradient(135deg,#1a5276 0%,#2e86c1 50%,#1a5276 100%);min-height:100vh;display:flex;align-items:center;justify-content:center}
+      .card{background:#fff;border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,0.3);padding:40px;width:380px}
+      .logo{text-align:center;margin-bottom:28px}
+      .logo .icon{width:60px;height:60px;background:#336791;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto;color:#fff;font-size:24px;font-weight:700}
+      .logo h1{font-size:24px;color:#336791;font-weight:700;margin:8px 0 0}
+      .logo p{font-size:12px;color:#888;margin:4px 0 0}
+      .form-group{margin-bottom:16px}
+      .form-group label{display:block;font-size:13px;color:#555;margin-bottom:5px;font-weight:500}
+      .form-group input{width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:4px;font-size:14px;outline:none}
+      .form-group input:focus{border-color:#336791}
+      .save{display:flex;align-items:center;gap:8px;font-size:13px;color:#666;margin-bottom:16px}
+      .btn{width:100%;padding:12px;background:#336791;color:#fff;border:none;border-radius:4px;font-size:15px;font-weight:600;cursor:pointer}
+      .btn:hover{background:#1a5276}
+      .footer{margin-top:24px;text-align:center;font-size:11px;color:#aaa}
+      </style>
+      </head>
+      <body>
+      <div class="card">
+        <div class="logo">
+          <div class="icon">pg</div>
+          <h1>pgAdmin 4</h1>
+          <p>v8.6</p>
+        </div>
+        <form method="post" action="/login">
+          <div class="form-group">
+            <label>Email Address</label>
+            <input type="text" name="email" placeholder="Email address" autocomplete="email">
+          </div>
+          <div class="form-group">
+            <label>Password</label>
+            <input type="password" name="password" placeholder="Password" autocomplete="current-password">
+          </div>
+          <div class="save">
+            <input type="checkbox" id="save" name="save_password">
+            <label for="save">Save password?</label>
+          </div>
+          <button type="submit" class="btn">Login</button>
+        </form>
+        <div class="footer">pgAdmin 4 — PostgreSQL Tools</div>
+      </div>
+      </body>
+      </html>
+
+  traefik_dashboard:
+    status: 200
+    content_type: "text/html; charset=utf-8"
+    headers:
+      Server: "Traefik"
+      X-Powered-By: "Traefik"
+    body: |
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+      <meta charset="utf-8">
+      <title>Traefik</title>
+      <link rel="stylesheet" href="{{cdn_pkg "@fontsource/inter" "index.css"}}">
+      <script defer src="{{cdn_pkg "chart.js@4.4.3" "dist/chart.umd.min.js"}}"></script>
+      <script defer src="{{cdn_pkg "alpinejs@3.14.1" "dist/cdn.min.js"}}"></script>
+      <style>
+      *{box-sizing:border-box;margin:0;padding:0}
+      body{font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#1d1f27;color:#e0e0e0}
+      .topbar{background:#1d1f27;border-bottom:1px solid #2e3142;padding:12px 24px;display:flex;align-items:center;gap:20px}
+      .topbar-logo{color:#f4791f;font-size:20px;font-weight:700}
+      .topbar-version{color:#666;font-size:12px}
+      .topbar-nav{display:flex;gap:4px;margin-left:auto}
+      .topbar-nav a{color:#aaa;text-decoration:none;padding:6px 12px;border-radius:4px;font-size:13px}
+      .topbar-nav a.active{background:#2e3142;color:#f4791f}
+      .content{padding:24px;max-width:1200px;margin:0 auto}
+      .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px}
+      .stat{background:#252636;border:1px solid #2e3142;border-radius:8px;padding:20px;text-align:center}
+      .stat .val{font-size:32px;font-weight:700;color:#f4791f}
+      .stat .lbl{font-size:12px;color:#888;margin-top:4px;text-transform:uppercase;letter-spacing:0.5px}
+      .card{background:#252636;border:1px solid #2e3142;border-radius:8px;overflow:hidden}
+      .card-hdr{padding:14px 20px;border-bottom:1px solid #2e3142;font-weight:600;font-size:14px;display:flex;align-items:center;justify-content:space-between}
+      .count{background:#f4791f;color:#fff;font-size:11px;padding:2px 8px;border-radius:10px}
+      table{width:100%;border-collapse:collapse;font-size:12px}
+      th{padding:10px 16px;text-align:left;color:#888;border-bottom:1px solid #2e3142;font-size:11px;text-transform:uppercase;letter-spacing:0.5px}
+      td{padding:10px 16px;border-bottom:1px solid #1d1f27;font-family:monospace}
+      .badge{display:inline-block;padding:2px 8px;border-radius:3px;font-size:11px;font-weight:600;font-family:sans-serif}
+      .badge-green{background:#1a3a1a;color:#4caf50;border:1px solid #2a5a2a}
+      </style>
+      </head>
+      <body x-data="{routers:14, services:8, middlewares:6, rps:{{add 80 (rand_int 120 "trps")}}}" x-init="setInterval(()=>{rps=Math.max(20,rps+Math.floor(Math.random()*21)-10)},2200)">
+      <div class="topbar">
+        <span class="topbar-logo">&#9646; Traefik</span>
+        <span class="topbar-version">v2.11.3</span>
+        <nav class="topbar-nav">
+          <a href="/dashboard/" class="active">Dashboard</a>
+          <a href="/api/http/routers">HTTP</a>
+          <a href="/api/tcp/routers">TCP</a>
+          <a href="/api/udp/routers">UDP</a>
+        </nav>
+      </div>
+      <div class="content">
+        <div class="stats">
+          <div class="stat"><div class="val" x-text="routers"></div><div class="lbl">Routers</div></div>
+          <div class="stat"><div class="val" x-text="services"></div><div class="lbl">Services</div></div>
+          <div class="stat"><div class="val" x-text="middlewares"></div><div class="lbl">Middlewares</div></div>
+          <div class="stat"><div class="val" x-text="rps"></div><div class="lbl">Req/sec</div></div>
+        </div>
+        <div class="card">
+          <div class="card-hdr">HTTP Routers <span class="count">14</span></div>
+          <table>
+            <thead><tr><th>Name</th><th>Rule</th><th>Entrypoints</th><th>Service</th><th>Status</th></tr></thead>
+            <tbody>
+              <tr><td>api@internal</td><td>PathPrefix(`/api`) || PathPrefix(`/dashboard`)</td><td>traefik</td><td>api@internal</td><td><span class="badge badge-green">Enabled</span></td></tr>
+              <tr><td>web-router</td><td>Host(`app.internal`)</td><td>web,websecure</td><td>web-svc</td><td><span class="badge badge-green">Enabled</span></td></tr>
+              <tr><td>api-router</td><td>Host(`api.internal`)</td><td>websecure</td><td>api-svc</td><td><span class="badge badge-green">Enabled</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="card" style="margin-top:16px"><div class="card-hdr">EntryPoint traffic <span class="count">live</span></div><div style="padding:16px"><canvas id="traefikChart" height="92"></canvas></div></div>
+      </div>
+      <script>
+      window.addEventListener('DOMContentLoaded',()=>new Chart(document.getElementById('traefikChart'),{type:'line',data:{labels:['-5m','-4m','-3m','-2m','-1m','now'],datasets:[{label:'websecure',data:[{{add 60 (rand_int 40 "tf1")}},{{add 70 (rand_int 45 "tf2")}},{{add 80 (rand_int 50 "tf3")}},{{add 75 (rand_int 55 "tf4")}},{{add 90 (rand_int 45 "tf5")}},{{add 95 (rand_int 60 "tf6")}}],borderColor:'#f4791f',backgroundColor:'rgba(244,121,31,.14)',fill:true,tension:.35}]},options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true}}}}));
+      </script>
+      </body>
+      </html>
+
+  portainer_login:
+    status: 200
+    content_type: "text/html; charset=utf-8"
+    headers:
+      Server: "Portainer"
+      Cache-Control: "no-cache"
+    body: |
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+      <meta charset="utf-8">
+      <title>Portainer</title>
+      <link rel="stylesheet" href="{{cdn_pkg "@fontsource/inter" "index.css"}}">
+      <script defer src="{{cdn_pkg "chart.js@4.4.3" "dist/chart.umd.min.js"}}"></script>
+      <script defer src="{{cdn_pkg "alpinejs@3.14.1" "dist/cdn.min.js"}}"></script>
+      <style>
+      *{box-sizing:border-box;margin:0;padding:0}
+      body{font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#1b2a38;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#ccc}
+      .wrap{width:100%;max-width:440px;padding:20px}
+      .env-panel{background:#263544;border-radius:8px;padding:18px;margin-top:16px;box-shadow:0 4px 20px rgba(0,0,0,0.25)}
+      .env-row{display:flex;justify-content:space-between;font-size:12px;color:#9fb3c8;margin-bottom:8px}
+      .env-row strong{color:#fff}
+      .logo{text-align:center;margin-bottom:32px}
+      .logo .icon{width:80px;height:80px;background:#00bcd4;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto;font-size:32px}
+      .logo h2{color:#00bcd4;font-size:26px;font-weight:300;margin-top:12px}
+      .card{background:#263544;border-radius:8px;padding:32px;box-shadow:0 4px 20px rgba(0,0,0,0.4)}
+      .card h3{color:#fff;font-size:16px;font-weight:500;margin-bottom:24px;text-align:center}
+      .form-group{margin-bottom:16px}
+      .form-group label{display:block;font-size:13px;color:#aaa;margin-bottom:6px}
+      .form-group input{width:100%;padding:10px 14px;background:#1b2a38;border:1px solid #3a4f62;border-radius:4px;color:#fff;font-size:14px;outline:none}
+      .form-group input:focus{border-color:#00bcd4}
+      .btn{width:100%;padding:12px;background:#00bcd4;color:#fff;border:none;border-radius:4px;font-size:15px;font-weight:600;cursor:pointer;margin-top:8px}
+      .btn:hover{background:#0097a7}
+      .version{text-align:center;margin-top:20px;font-size:12px;color:#555}
+      </style>
+      </head>
+      <body x-data="{containers:{{add 9 (rand_int 9 "pct")}}, images:{{add 18 (rand_int 18 "pimg")}}, volumes:{{add 4 (rand_int 7 "pvol")}}}" x-init="setInterval(()=>{containers=Math.max(1,containers+Math.floor(Math.random()*3)-1)},3000)">
+      <div class="wrap">
+        <div class="logo">
+          <div class="icon">&#x1F433;</div>
+          <h2>Portainer</h2>
+        </div>
+        <div class="card">
+          <h3>Please sign in</h3>
+          <form method="post" action="/api/auth">
+            <div class="form-group">
+              <label>Username</label>
+              <input type="text" name="Username" placeholder="admin" autocomplete="username">
+            </div>
+            <div class="form-group">
+              <label>Password</label>
+              <input type="password" name="Password" placeholder="Password" autocomplete="current-password">
+            </div>
+            <button type="submit" class="btn">Sign in</button>
+          </form>
+        </div>
+        <div class="env-panel">
+          <div class="env-row"><span>Containers</span><strong x-text="containers"></strong></div>
+          <div class="env-row"><span>Images</span><strong x-text="images"></strong></div>
+          <div class="env-row"><span>Volumes</span><strong x-text="volumes"></strong></div>
+          <canvas id="portainerChart" height="90"></canvas>
+        </div>
+        <div class="version">Portainer CE 2.20.3</div>
+      </div>
+      <script>
+      window.addEventListener('DOMContentLoaded',()=>new Chart(document.getElementById('portainerChart'),{type:'doughnut',data:{labels:['Running','Stopped','Unhealthy'],datasets:[{data:[{{add 8 (rand_int 8 "pc1")}},{{add 1 (rand_int 4 "pc2")}},{{rand_int 3 "pc3"}}],backgroundColor:['#00bcd4','#607d8b','#ff5252']}]},options:{plugins:{legend:{position:'bottom',labels:{color:'#cbd5e1'}}}}}));
+      </script>
+      </body>
+      </html>
+
+  keycloak_login:
+    status: 200
+    content_type: "text/html; charset=utf-8"
+    headers:
+      Server: "WildFly/26"
+      X-Frame-Options: "SAMEORIGIN"
+      Strict-Transport-Security: "max-age=31536000; includeSubDomains"
+    body: |
+      <!DOCTYPE html>
+      <html>
+      <head>
+      <meta charset="utf-8">
+      <title>Sign in to Keycloak</title>
+      <style>
+      *{box-sizing:border-box;margin:0;padding:0}
+      body{font-family:RedHatText,"Overpass",overpass,helvetica,arial,sans-serif;background:#f0f0f0;min-height:100vh;display:flex;flex-direction:column}
+      .page-header{background:#151515;padding:16px 24px}
+      .page-header .brand{color:#fff;font-size:18px;font-weight:600}
+      .page-header .brand span{color:#e00}
+      .page-main{flex:1;display:flex;align-items:center;justify-content:center;padding:40px 20px;background:linear-gradient(135deg,#a30000 0%,#cc0000 100%)}
+      .login-box{background:#fff;border-radius:4px;box-shadow:0 4px 16px rgba(0,0,0,0.3);padding:40px;width:100%;max-width:440px}
+      .login-box h1{font-size:22px;font-weight:600;color:#151515;margin-bottom:24px}
+      .field{margin-bottom:16px}
+      .field label{display:block;font-size:14px;font-weight:500;color:#151515;margin-bottom:6px}
+      .field .req{color:#e00}
+      .field input{width:100%;padding:8px 12px;border:1px solid #8a8d90;border-radius:4px;font-size:14px;color:#151515;outline:none}
+      .field input:focus{border-color:#e00;box-shadow:0 0 0 2px rgba(220,0,0,0.15)}
+      .btn{padding:8px 16px;border-radius:4px;font-size:14px;font-weight:600;cursor:pointer;border:none}
+      .btn-primary{background:#e00;color:#fff;width:100%;padding:12px;margin-top:8px;font-size:15px}
+      .btn-primary:hover{background:#a30000}
+      .divider{text-align:center;color:#6a6e73;font-size:13px;margin:20px 0;position:relative}
+      .divider::before,.divider::after{content:"";position:absolute;top:50%;width:42%;height:1px;background:#d2d2d2}
+      .divider::before{left:0}.divider::after{right:0}
+      .social a{display:block;padding:10px;border:1px solid #d2d2d2;border-radius:4px;text-align:center;text-decoration:none;color:#151515;font-size:14px;margin-bottom:10px}
+      .social a:hover{background:#f0f0f0}
+      </style>
+      </head>
+      <body>
+      <header class="page-header">
+        <span class="brand"><span>Red Hat</span> Single Sign-On / Keycloak</span>
+      </header>
+      <main class="page-main">
+        <div class="login-box">
+          <h1>Sign in to your account</h1>
+          <form method="post" action="/realms/master/login-actions/authenticate">
+            <input type="hidden" name="session_code" value="{{api_key .Seed}}">
+            <input type="hidden" name="execution" value="{{api_key (mul .Seed 3)}}">
+            <input type="hidden" name="client_id" value="security-admin-console">
+            <div class="field">
+              <label>Username or email <span class="req">*</span></label>
+              <input type="text" name="username" autocomplete="off">
+            </div>
+            <div class="field">
+              <label>Password <span class="req">*</span></label>
+              <input type="password" name="password" autocomplete="off">
+            </div>
+            <button class="btn btn-primary" type="submit">Sign In</button>
+          </form>
+          <div class="divider">or</div>
+          <div class="social">
+            <a href="/realms/master/broker/google/login">Sign in with Google</a>
+            <a href="/realms/master/broker/github/login">Sign in with GitHub</a>
+          </div>
+        </div>
+      </main>
+      </body>
+      </html>
+
+  rabbitmq_mgmt:
+    status: 200
+    content_type: "text/html; charset=utf-8"
+    headers:
+      Server: "Cowboy"
+      Vary: "Accept-Encoding"
+    body: |
+      <!DOCTYPE html>
+      <html>
+      <head>
+      <meta charset="utf-8">
+      <title>RabbitMQ Management</title>
+      <link rel="stylesheet" href="{{cdn_pkg "@fontsource/inter" "index.css"}}">
+      <script defer src="{{cdn_pkg "chart.js@4.4.3" "dist/chart.umd.min.js"}}"></script>
+      <script defer src="{{cdn_pkg "alpinejs@3.14.1" "dist/cdn.min.js"}}"></script>
+      <style>
+      *{box-sizing:border-box;margin:0;padding:0}
+      body{font-family:Inter,Arial,"Helvetica Neue",Helvetica,sans-serif;background:#fafafa;color:#333;font-size:13px}
+      #header{background:#f60;padding:8px 16px;display:flex;align-items:center;justify-content:space-between}
+      #logo{font-size:22px;font-weight:700;color:#fff}
+      #logo span{font-size:12px;font-weight:400;opacity:0.8;margin-left:8px}
+      .nav{display:flex;gap:0;border-bottom:2px solid #f60}
+      .nav a{padding:10px 16px;cursor:pointer;color:#555;text-decoration:none;border-top:2px solid transparent;font-size:13px}
+      .nav a:hover{color:#f60}
+      .nav a.active{color:#f60;border-top-color:#f60;background:#fff}
+      .content{max-width:1200px;margin:0 auto;padding:20px 16px}
+      .stats{display:flex;gap:16px;margin-bottom:20px;flex-wrap:wrap}
+      .stat{background:#fff;border:1px solid #ddd;border-radius:4px;padding:14px 20px;min-width:120px}
+      .stat .lbl{font-size:11px;color:#888;text-transform:uppercase;letter-spacing:0.5px}
+      .stat .val{font-size:24px;font-weight:700;color:#333;margin-top:4px}
+      .stat .val.green{color:#2a9d2a}
+      .panel{background:#fff;border:1px solid #ddd;border-radius:4px;overflow:hidden}
+      .panel-title{padding:10px 16px;background:#f5f5f5;border-bottom:1px solid #ddd;font-weight:700;font-size:13px}
+      table{width:100%;border-collapse:collapse}
+      th{padding:8px 12px;background:#f9f9f9;border-bottom:1px solid #e0e0e0;font-size:12px;color:#666;text-align:left}
+      td{padding:8px 12px;border-bottom:1px solid #f0f0f0}
+      td a{color:#1a7abf;text-decoration:none}
+      .idle{color:#888}
+      .running{color:#2a9d2a;font-weight:600}
+      </style>
+      </head>
+      <body x-data="{ready:0, unacked:0, total:247, publish:12, deliver:11}" x-init="setInterval(()=>{publish=Math.max(1,publish+Math.floor(Math.random()*5)-2);deliver=Math.max(1,deliver+Math.floor(Math.random()*5)-2);total+=Math.floor(Math.random()*7)},2500)">
+      <div id="header">
+        <div id="logo">RabbitMQ <span>Management Plugin v3.13.2</span></div>
+        <div style="color:rgba(255,255,255,0.9);font-size:12px">Logged in as <strong>guest</strong> | <a href="/logout" style="color:#fff">Log out</a></div>
+      </div>
+      <div class="nav">
+        <a class="active" href="/">Overview</a>
+        <a href="/connections">Connections</a>
+        <a href="/channels">Channels</a>
+        <a href="/exchanges">Exchanges</a>
+        <a href="/queues">Queues and Streams</a>
+        <a href="/admin">Admin</a>
+      </div>
+      <div class="content">
+        <div class="stats">
+          <div class="stat"><div class="lbl">Ready</div><div class="val green" x-text="ready"></div></div>
+          <div class="stat"><div class="lbl">Unacked</div><div class="val" x-text="unacked"></div></div>
+          <div class="stat"><div class="lbl">Total</div><div class="val" x-text="total"></div></div>
+          <div class="stat"><div class="lbl">Publish</div><div class="val"><span x-text="publish"></span>/s</div></div>
+          <div class="stat"><div class="lbl">Deliver</div><div class="val"><span x-text="deliver"></span>/s</div></div>
+          <div class="stat"><div class="lbl">Nodes</div><div class="val green">1</div></div>
+        </div>
+        <div class="panel">
+          <div class="panel-title">Queues</div>
+          <table>
+            <thead><tr><th>Virtual host</th><th>Name</th><th>Type</th><th>State</th><th>Ready</th><th>Unacked</th><th>Total</th><th>Rate</th></tr></thead>
+            <tbody>
+              <tr><td>/</td><td><a href="/queues/%2F/default">default</a></td><td>classic</td><td><span class="running">running</span></td><td>0</td><td>0</td><td>142</td><td>5.2/s</td></tr>
+              <tr><td>/</td><td><a href="/queues/%2F/mailers">mailers</a></td><td>classic</td><td><span class="running">running</span></td><td>0</td><td>0</td><td>63</td><td>2.1/s</td></tr>
+              <tr><td>/</td><td><a href="/queues/%2F/exports">exports</a></td><td>classic</td><td><span class="idle">idle</span></td><td>0</td><td>0</td><td>42</td><td>0/s</td></tr>
+              <tr><td>/</td><td><a href="/queues/%2F/dead_letters">dead_letters</a></td><td>classic</td><td><span class="idle">idle</span></td><td>0</td><td>0</td><td>0</td><td>0/s</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="panel" style="margin-top:20px"><div class="panel-title">Message rates</div><div style="padding:12px"><canvas id="rabbitChart" height="85"></canvas></div></div>
+      </div>
+      <script>
+      window.addEventListener('DOMContentLoaded',()=>new Chart(document.getElementById('rabbitChart'),{type:'line',data:{labels:['-5m','-4m','-3m','-2m','-1m','now'],datasets:[{label:'Publish',data:[{{add 8 (rand_int 10 "rb1")}},{{add 10 (rand_int 8 "rb2")}},{{add 9 (rand_int 12 "rb3")}},{{add 12 (rand_int 10 "rb4")}},{{add 11 (rand_int 9 "rb5")}},{{add 13 (rand_int 8 "rb6")}}],borderColor:'#ff6600',tension:.3},{label:'Deliver',data:[{{add 7 (rand_int 10 "rd1")}},{{add 9 (rand_int 8 "rd2")}},{{add 8 (rand_int 11 "rd3")}},{{add 10 (rand_int 10 "rd4")}},{{add 12 (rand_int 9 "rd5")}},{{add 11 (rand_int 8 "rd6")}}],borderColor:'#2a9d2a',tension:.3}]},options:{plugins:{legend:{position:'bottom'}},scales:{y:{beginAtZero:true}}}}));
+      </script>
+      </body>
+      </html>
+
+  minio_console:
+    status: 200
+    content_type: "text/html; charset=utf-8"
+    headers:
+      Server: "MinIO"
+      X-Content-Type-Options: "nosniff"
+    body: |
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+      <meta charset="utf-8">
+      <title>MinIO Console</title>
+      <link rel="stylesheet" href="{{cdn_pkg "@fontsource/inter" "index.css"}}">
+      <script defer src="{{cdn_pkg "chart.js@4.4.3" "dist/chart.umd.min.js"}}"></script>
+      <script defer src="{{cdn_pkg "alpinejs@3.14.1" "dist/cdn.min.js"}}"></script>
+      <style>
+      *{box-sizing:border-box;margin:0;padding:0}
+      body{font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#0d0d0d;color:#e0e0e0;min-height:100vh;display:flex;flex-direction:column}
+      .topbar{background:#161616;border-bottom:1px solid #2a2a2a;padding:12px 24px;display:flex;align-items:center}
+      .logo-icon{background:#c72c48;width:32px;height:32px;border-radius:4px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:16px;margin-right:10px}
+      .logo-text{color:#fff;font-size:18px;font-weight:600}
+      .topbar-nav{display:flex;gap:4px;margin-left:32px}
+      .topbar-nav a{color:#aaa;text-decoration:none;padding:6px 14px;border-radius:4px;font-size:13px}
+      .topbar-nav a.active,.topbar-nav a:hover{background:#2a2a2a;color:#c72c48}
+      .topbar-right{margin-left:auto;font-size:13px;color:#888}
+      .content{flex:1;padding:24px}
+      .card{background:#161616;border:1px solid #2a2a2a;border-radius:8px;overflow:hidden;margin-bottom:20px}
+      .card-hdr{padding:14px 20px;border-bottom:1px solid #2a2a2a;font-weight:600;font-size:14px;display:flex;align-items:center;justify-content:space-between}
+      .btn{background:#c72c48;color:#fff;border:none;padding:6px 14px;border-radius:4px;font-size:13px;cursor:pointer;font-weight:500}
+      table{width:100%;border-collapse:collapse;font-size:13px}
+      th{padding:10px 16px;text-align:left;font-weight:500;color:#666;border-bottom:1px solid #2a2a2a;font-size:11px;text-transform:uppercase;letter-spacing:0.5px}
+      td{padding:10px 16px;border-bottom:1px solid #1a1a1a;font-family:monospace;font-size:12px;color:#bbb}
+      td a{color:#c72c48;text-decoration:none}
+      .ver{background:#1a2a1a;color:#4caf50;border:1px solid #2a4a2a;display:inline-block;padding:2px 8px;border-radius:3px;font-size:11px;font-weight:600;font-family:sans-serif}
+      .none{background:#2a2a1a;color:#aaa;border:1px solid #3a3a2a;display:inline-block;padding:2px 8px;border-radius:3px;font-size:11px;font-weight:600;font-family:sans-serif}
+      .metric-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px}
+      .metric{background:#161616;border:1px solid #2a2a2a;border-radius:8px;padding:16px}
+      .metric strong{display:block;color:#fff;font-size:24px}
+      .metric span{font-size:12px;color:#777;text-transform:uppercase}
+      </style>
+      </head>
+      <body x-data="{objects:{{add 12000 (rand_int 9000 "mobj")}}, usage:{{add 62 (rand_int 18 "muse")}}, requests:{{add 140 (rand_int 90 "mreq")}}}" x-init="setInterval(()=>{requests=Math.max(20,requests+Math.floor(Math.random()*21)-10);objects+=Math.floor(Math.random()*12)},2500)">
+      <div class="topbar">
+        <div class="logo-icon">M</div>
+        <div class="logo-text">MinIO</div>
+        <nav class="topbar-nav">
+          <a href="/buckets" class="active">Buckets</a>
+          <a href="/identity">Identity</a>
+          <a href="/access">Access</a>
+          <a href="/monitoring">Monitoring</a>
+          <a href="/settings">Settings</a>
+        </nav>
+        <div class="topbar-right">RELEASE.2026-04-18 &nbsp;|&nbsp; admin</div>
+      </div>
+      <div class="content">
+        <div class="metric-grid">
+          <div class="metric"><strong x-text="objects"></strong><span>Objects</span></div>
+          <div class="metric"><strong><span x-text="usage"></span>%</strong><span>Capacity</span></div>
+          <div class="metric"><strong x-text="requests"></strong><span>Req/sec</span></div>
+        </div>
+        <div class="card">
+          <div class="card-hdr">Buckets <button class="btn">+ Create Bucket</button></div>
+          <table>
+            <thead><tr><th>Name</th><th>Created</th><th>Size</th><th>Objects</th><th>Versioning</th><th>Access</th></tr></thead>
+            <tbody>
+              <tr><td><a href="/buckets/uploads/browse">uploads</a></td><td>2025-11-02</td><td>12.4 GiB</td><td>9,821</td><td><span class="none">None</span></td><td>Private</td></tr>
+              <tr><td><a href="/buckets/backups/browse">backups</a></td><td>2025-11-02</td><td>48.7 GiB</td><td>1,204</td><td><span class="ver">Versioned</span></td><td>Private</td></tr>
+              <tr><td><a href="/buckets/exports/browse">exports</a></td><td>2025-12-14</td><td>3.2 GiB</td><td>542</td><td><span class="none">None</span></td><td>Private</td></tr>
+              <tr><td><a href="/buckets/assets/browse">assets</a></td><td>2026-01-08</td><td>1.1 GiB</td><td>2,087</td><td><span class="none">None</span></td><td>Public</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="card"><div class="card-hdr">S3 request rate <span style="font-size:12px;color:#777">live</span></div><div style="padding:16px"><canvas id="minioChart" height="88"></canvas></div></div>
+      </div>
+      <script>
+      window.addEventListener('DOMContentLoaded',()=>new Chart(document.getElementById('minioChart'),{type:'line',data:{labels:['-5m','-4m','-3m','-2m','-1m','now'],datasets:[{label:'GET/s',data:[{{add 80 (rand_int 60 "mg1")}},{{add 85 (rand_int 65 "mg2")}},{{add 95 (rand_int 60 "mg3")}},{{add 90 (rand_int 70 "mg4")}},{{add 110 (rand_int 60 "mg5")}},{{add 115 (rand_int 70 "mg6")}}],borderColor:'#c72c48',backgroundColor:'rgba(199,44,72,.12)',fill:true,tension:.35}]},options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true}}}}));
+      </script>
+      </body>
+      </html>
+
+  argocd_login:
+    status: 200
+    content_type: "text/html; charset=utf-8"
+    headers:
+      Server: "nginx"
+      X-Frame-Options: "sameorigin"
+    body: |
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+      <meta charset="utf-8">
+      <title>Argo CD</title>
+      <link rel="stylesheet" href="{{cdn_pkg "@fontsource/inter" "index.css"}}">
+      <script defer src="{{cdn_pkg "chart.js@4.4.3" "dist/chart.umd.min.js"}}"></script>
+      <script defer src="{{cdn_pkg "alpinejs@3.14.1" "dist/cdn.min.js"}}"></script>
+      <style>
+      *{box-sizing:border-box;margin:0;padding:0}
+      body{font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#12191c;color:#ccd6dd;min-height:100vh;display:flex;flex-direction:column}
+      .topbar{background:#100f0f;border-bottom:1px solid #253840;padding:12px 24px;display:flex;align-items:center;gap:16px}
+      .topbar-brand{color:#e96d17;font-size:20px;font-weight:700}
+      .topbar-version{color:#4a6572;font-size:12px}
+      .main{flex:1;display:flex;align-items:center;justify-content:center;padding:40px;gap:24px}
+      .card{background:#1c2b33;border:1px solid #253840;border-radius:8px;padding:40px;width:100%;max-width:400px}
+      .apps{background:#1c2b33;border:1px solid #253840;border-radius:8px;padding:24px;width:420px}
+      .apps h3{margin:0 0 14px;color:#fff;font-size:16px}
+      .app-row{display:flex;justify-content:space-between;border-top:1px solid #253840;padding:9px 0;font-size:13px}
+      .sync{color:#65c466}.out{color:#e96d17}
+      .card-logo{text-align:center;margin-bottom:28px}
+      .card-logo .gear{font-size:48px;filter:drop-shadow(0 0 8px #e96d17)}
+      .card-logo h2{color:#fff;font-size:22px;font-weight:600;margin-top:8px}
+      .card-logo p{color:#4a6572;font-size:13px;margin-top:4px}
+      .form-group{margin-bottom:16px}
+      .form-group label{display:block;font-size:13px;color:#8fa8b3;margin-bottom:6px;font-weight:500}
+      .form-group input{width:100%;padding:10px 14px;background:#12191c;border:1px solid #2e4450;border-radius:4px;color:#ccd6dd;font-size:14px;outline:none}
+      .form-group input:focus{border-color:#e96d17}
+      .btn-login{width:100%;padding:12px;background:#e96d17;color:#fff;border:none;border-radius:4px;font-size:15px;font-weight:600;cursor:pointer;margin-top:8px}
+      .btn-login:hover{background:#c85c10}
+      .divider{text-align:center;color:#4a6572;font-size:12px;margin:20px 0;position:relative}
+      .divider::before,.divider::after{content:"";position:absolute;top:50%;width:42%;height:1px;background:#253840}
+      .divider::before{left:0}.divider::after{right:0}
+      .btn-sso{width:100%;padding:10px;background:transparent;color:#ccd6dd;border:1px solid #2e4450;border-radius:4px;font-size:14px;cursor:pointer}
+      .btn-sso:hover{border-color:#e96d17;color:#e96d17}
+      </style>
+      </head>
+      <body x-data="{synced:{{add 8 (rand_int 8 "argoSync")}}, out:{{rand_int 5 "argoOut"}}, health:{{add 90 (rand_int 8 "argoHealth")}}}" x-init="setInterval(()=>{out=Math.max(0,out+Math.floor(Math.random()*3)-1);health=Math.min(99,Math.max(80,health+Math.floor(Math.random()*5)-2))},3000)">
+      <div class="topbar">
+        <span class="topbar-brand">&#9881; Argo CD</span>
+        <span class="topbar-version">v2.10.4</span>
+      </div>
+      <div class="main">
+        <div class="card">
+          <div class="card-logo">
+            <div class="gear">&#9881;</div>
+            <h2>Argo CD</h2>
+            <p>Declarative GitOps CD for Kubernetes</p>
+          </div>
+          <form method="post" action="/api/v1/session">
+            <div class="form-group">
+              <label>Username</label>
+              <input type="text" name="username" placeholder="admin" autocomplete="username">
+            </div>
+            <div class="form-group">
+              <label>Password</label>
+              <input type="password" name="password" autocomplete="current-password">
+            </div>
+            <button type="submit" class="btn-login">Login</button>
+          </form>
+          <div class="divider">OR</div>
+          <button class="btn-sso">Log in via SSO</button>
+        </div>
+        <div class="apps">
+          <h3>Application health</h3>
+          <canvas id="argoChart" height="110"></canvas>
+          <div class="app-row"><span>platform-api</span><b class="sync">Synced</b></div>
+          <div class="app-row"><span>web-console</span><b class="sync">Healthy</b></div>
+          <div class="app-row"><span>worker-cron</span><b class="out">OutOfSync</b></div>
+          <div class="app-row"><span>synced apps</span><b x-text="synced"></b></div>
+          <div class="app-row"><span>health score</span><b><span x-text="health"></span>%</b></div>
+        </div>
+      </div>
+      <script>
+      window.addEventListener('DOMContentLoaded',()=>new Chart(document.getElementById('argoChart'),{type:'doughnut',data:{labels:['Healthy','Progressing','Degraded'],datasets:[{data:[{{add 12 (rand_int 6 "ah1")}},{{add 1 (rand_int 3 "ah2")}},{{rand_int 2 "ah3"}}],backgroundColor:['#65c466','#e96d17','#d64a4a']}]},options:{plugins:{legend:{position:'bottom',labels:{color:'#ccd6dd'}}}}}));
+      </script>
+      </body>
+      </html>
+
+  rails_info_props:
+    status: 200
+    content_type: "text/html; charset=utf-8"
+    headers:
+      X-Powered-By: "Phusion Passenger 6.0.20"
+      X-Runtime: '0.003{{rand_int 100 "rt"}}'
+      Server: "nginx/1.25.3"
+    body: |
+      <!DOCTYPE html>
+      <html>
+      <head>
+      <meta charset="utf-8">
+      <title>Rails Information</title>
+      <style>
+      body{font-family:Verdana,Arial,sans-serif;font-size:13px;color:#333;margin:0;padding:20px;background:#fff}
+      h2{font-size:18px;border-bottom:2px solid #333;padding-bottom:6px;margin-bottom:16px}
+      table{width:100%;border-collapse:collapse;margin-bottom:24px}
+      th{background:#c52f24;color:#fff;padding:8px 12px;text-align:left;font-size:13px}
+      td{padding:7px 12px;border-bottom:1px solid #e0e0e0;font-family:monospace;font-size:12px}
+      tr:nth-child(even) td{background:#f9f9f9}
+      td:first-child{width:35%;font-weight:600;font-family:inherit;font-size:13px;color:#555}
+      </style>
+      </head>
+      <body>
+      <h2>Rails Application Properties</h2>
+      <table>
+        <thead><tr><th colspan="2">Framework</th></tr></thead>
+        <tbody>
+          <tr><td>Ruby version</td><td>3.3.1-p55 (x86_64-linux)</td></tr>
+          <tr><td>RubyGems version</td><td>3.5.9</td></tr>
+          <tr><td>Rails version</td><td>7.1.3.4</td></tr>
+        </tbody>
+      </table>
+      <table>
+        <thead><tr><th colspan="2">Environment</th></tr></thead>
+        <tbody>
+          <tr><td>Environment</td><td>production</td></tr>
+          <tr><td>Database adapter</td><td>postgresql</td></tr>
+          <tr><td>Database schema version</td><td>20260418143021</td></tr>
+          <tr><td>App root</td><td>/var/www/app/current</td></tr>
+        </tbody>
+      </table>
+      <table>
+        <thead><tr><th colspan="2">Middleware Stack</th></tr></thead>
+        <tbody>
+          <tr><td>0</td><td>ActionDispatch::HostAuthorization</td></tr>
+          <tr><td>1</td><td>Rack::Sendfile</td></tr>
+          <tr><td>2</td><td>ActionDispatch::Static</td></tr>
+          <tr><td>3</td><td>ActionDispatch::Executor</td></tr>
+          <tr><td>4</td><td>Rack::Runtime</td></tr>
+          <tr><td>5</td><td>Rack::MethodOverride</td></tr>
+          <tr><td>6</td><td>ActionDispatch::RequestId</td></tr>
+          <tr><td>7</td><td>ActionDispatch::RemoteIp</td></tr>
+          <tr><td>8</td><td>ActionDispatch::Session::CookieStore</td></tr>
+          <tr><td>9</td><td>ActionDispatch::Flash</td></tr>
+          <tr><td>10</td><td>Rack::Head</td></tr>
+          <tr><td>11</td><td>Rack::ETag</td></tr>
+        </tbody>
+      </table>
+      </body>
+      </html>
+
+  gitea_login:
+    status: 200
+    content_type: "text/html; charset=utf-8"
+    headers:
+      Server: "Gitea"
+      X-Frame-Options: "SAMEORIGIN"
+      X-Content-Type-Options: "nosniff"
+    body: |
+      <!DOCTYPE html>
+      <html lang="en-US">
+      <head>
+      <meta charset="utf-8">
+      <title>Sign In - Gitea</title>
+      <style>
+      *{box-sizing:border-box;margin:0;padding:0}
+      body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;background:#f6f8fa;color:#24292e;font-size:14px}
+      #navbar{background:#fff;border-bottom:1px solid #e1e4e8;padding:0 16px;height:56px;display:flex;align-items:center;gap:16px;position:sticky;top:0}
+      #navbar .brand{color:#000;font-size:20px;font-weight:700;text-decoration:none}
+      .page-content{max-width:440px;margin:40px auto;padding:0 16px}
+      .segment{background:#fff;border:1px solid #e1e4e8;border-radius:6px;padding:24px}
+      .segment h2{font-size:22px;font-weight:600;margin-bottom:20px;text-align:center}
+      .field{margin-bottom:16px}
+      .field label{display:block;font-size:13px;font-weight:600;margin-bottom:5px}
+      .field input{width:100%;padding:8px 12px;border:1px solid #e1e4e8;border-radius:6px;font-size:14px;outline:none}
+      .field input:focus{border-color:#0969da;box-shadow:0 0 0 3px rgba(9,105,218,0.1)}
+      .checkbox{display:flex;align-items:center;gap:8px;font-size:13px;color:#57606a;margin-bottom:20px}
+      .btn{width:100%;padding:10px;background:#2da44e;color:#fff;border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer}
+      .btn:hover{background:#2c974b}
+      .divider{text-align:center;color:#57606a;font-size:13px;margin:20px 0;position:relative}
+      .divider::before,.divider::after{content:"";position:absolute;top:50%;width:44%;height:1px;background:#e1e4e8}
+      .divider::before{left:0}.divider::after{right:0}
+      .center{text-align:center;font-size:13px;color:#57606a;margin-top:16px}
+      .center a{color:#0969da;text-decoration:none}
+      </style>
+      </head>
+      <body>
+      <nav id="navbar">
+        <a href="/" class="brand">&#x1F423; Gitea</a>
+        <div style="flex:1"></div>
+        <a href="/explore/repos" style="font-size:13px;color:#57606a;text-decoration:none">Explore</a>
+        <a href="/user/sign_up" style="font-size:13px;color:#57606a;text-decoration:none">Register</a>
+      </nav>
+      <div class="page-content">
+        <div class="segment">
+          <h2>Sign In</h2>
+          <form method="post" action="/user/login">
+            <input type="hidden" name="_csrf" value="{{api_key .Seed}}">
+            <div class="field">
+              <label for="user_name">Username or Email Address</label>
+              <input type="text" id="user_name" name="user_name" autocomplete="username">
+            </div>
+            <div class="field">
+              <label for="password">Password</label>
+              <input type="password" id="password" name="password" autocomplete="current-password">
+            </div>
+            <label class="checkbox">
+              <input type="checkbox" name="remember"> Remember this Device
+            </label>
+            <button type="submit" class="btn">Sign In</button>
+          </form>
+          <div class="divider">or</div>
+          <div class="center">Don't have an account? <a href="/user/sign_up">Register now</a></div>
+        </div>
+        <div class="center" style="margin-top:16px">Powered by <a href="/about">Gitea</a> Version: 1.21.11</div>
+      </div>
+      </body>
+      </html>
+
+  sonarqube_login:
+    status: 200
+    content_type: "text/html; charset=utf-8"
+    headers:
+      Server: "Apache-Coyote/1.1"
+      X-Frame-Options: "SAMEORIGIN"
+      Cache-Control: "no-cache, no-store, must-revalidate"
+    body: |
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+      <meta charset="utf-8">
+      <title>SonarQube</title>
+      <style>
+      *{box-sizing:border-box;margin:0;padding:0}
+      body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#f3f3f3;color:#333;min-height:100vh;display:flex;flex-direction:column}
+      .topbar{background:#fff;border-bottom:1px solid #e6e6e6;padding:0 20px;height:60px;display:flex;align-items:center}
+      .sq-icon{width:32px;height:32px;background:#4d9fd6;border-radius:4px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:14px;margin-right:10px}
+      .sq-name{font-size:16px;font-weight:700;color:#333}
+      .sq-version{font-size:11px;color:#aaa;margin-left:6px}
+      .main{flex:1;display:flex;align-items:center;justify-content:center;padding:40px 20px}
+      .card{background:#fff;border:1px solid #e6e6e6;border-radius:4px;box-shadow:0 1px 4px rgba(0,0,0,0.08);padding:40px;width:100%;max-width:420px}
+      .card h1{font-size:20px;font-weight:600;text-align:center;margin-bottom:8px}
+      .card .subtitle{font-size:13px;color:#666;text-align:center;margin-bottom:28px}
+      .form-group{margin-bottom:16px}
+      .form-group label{display:block;font-size:13px;font-weight:600;margin-bottom:5px}
+      .form-group input{width:100%;padding:8px 12px;border:1px solid #ccc;border-radius:2px;font-size:14px;outline:none}
+      .form-group input:focus{border-color:#4d9fd6;box-shadow:0 0 0 2px rgba(77,159,214,0.2)}
+      .btn-login{width:100%;padding:10px;background:#4d9fd6;color:#fff;border:none;border-radius:2px;font-size:15px;font-weight:600;cursor:pointer;margin-top:8px}
+      .btn-login:hover{background:#3a8fc6}
+      .divider{text-align:center;color:#aaa;font-size:12px;margin:20px 0;position:relative}
+      .divider::before,.divider::after{content:"";position:absolute;top:50%;width:42%;height:1px;background:#e6e6e6}
+      .divider::before{left:0}.divider::after{right:0}
+      .btn-saml{width:100%;padding:9px;background:#fff;color:#333;border:1px solid #ccc;border-radius:2px;font-size:14px;cursor:pointer}
+      .btn-saml:hover{background:#f0f0f0}
+      .footer{text-align:center;padding:16px;font-size:11px;color:#aaa}
+      </style>
+      </head>
+      <body>
+      <div class="topbar">
+        <div class="sq-icon">SQ</div>
+        <span class="sq-name">SonarQube</span>
+        <span class="sq-version">v10.5.1</span>
+      </div>
+      <div class="main">
+        <div class="card">
+          <h1>Log in to SonarQube</h1>
+          <p class="subtitle">Continuous Inspection</p>
+          <form method="post" action="/sessions/login">
+            <input type="hidden" name="return_to" value="/projects">
+            <div class="form-group">
+              <label for="login">Login</label>
+              <input type="text" id="login" name="login" placeholder="Enter your login" autocomplete="username">
+            </div>
+            <div class="form-group">
+              <label for="password">Password</label>
+              <input type="password" id="password" name="password" placeholder="Enter your password" autocomplete="current-password">
+            </div>
+            <button type="submit" class="btn-login">Log In</button>
+          </form>
+          <div class="divider">or</div>
+          <button class="btn-saml">Log in with SAML</button>
+        </div>
+      </div>
+      <div class="footer">SonarQube &trade; &mdash; Clean Code</div>
       </body>
       </html>

@@ -1,33 +1,33 @@
-# decoy_paths.yaml — bait endpoints published via /__veilgate/.well-known
+# route-manifest.yaml — registered handler paths published via /_g/config
 #
-# The browser SDK reads the tarpit.paths block from .well-known and injects
-# these paths as DOM decoys (randomised subset per page load). Agents that
-# mine the SPA bundle or DOM discover realistic breadcrumbs; when they follow
-# one the proxy routes the request to the tarpit instead of the real upstream.
+# The browser SDK reads the routes.paths block from /_g/config and injects
+# these paths as DOM breadcrumbs (randomised subset per page load). Agents
+# that mine the SPA bundle or DOM discover realistic-looking endpoints; when
+# they follow one the proxy routes the request to the correct handler.
 #
 # Every path here should have a matching route in injection_strategy.yaml so
-# agents receive a convincing fake response, not a generic 404.
+# agents receive a convincing response, not a generic 404.
 #
 # Operator guide:
 #   - Add paths for services your stack actually uses — Vault, Stripe, etc.
-#   - Add paths for services you DON'T use to lure opportunistic scanners.
-#   - Paths are URL-matched by the tarpit router using injection_strategy.yaml
-#     rules; `service` is a label only and does not affect routing.
-#   - Drop extra files into decoy_paths/ to extend this list without editing
+#   - Add paths for services you don't expose to surface opportunistic probes.
+#   - Paths are URL-matched by the router using injection_strategy.yaml rules;
+#     `service` is a label only and does not affect routing.
+#   - Drop extra files into route-manifest/ to extend this list without editing
 #     the root file (same merge pattern as other rules subdirectories).
 
 paths:
 
   # ---------------------------------------------------------------------------
-  # SSRF / cloud-metadata bait
+  # SSRF / cloud-metadata
   # Agents probing for server-side request forgery entry points.
   # ---------------------------------------------------------------------------
   - path: "/api/v1/fetch"
-    service: "ssrf-bait"
+    service: "ssrf-handler"
   - path: "/api/proxy"
-    service: "ssrf-bait"
+    service: "ssrf-handler"
   - path: "/api/v1/ssrf-check"
-    service: "ssrf-bait"
+    service: "ssrf-handler"
   - path: "/api/debug/cloud-metadata"
     service: "aws-metadata"
 
@@ -49,7 +49,7 @@ paths:
     service: "ssh-key"
 
   # ---------------------------------------------------------------------------
-  # Git / VCS artifacts
+  # VCS artifacts
   # Exposed source trees and pipeline configs leak secrets and architecture.
   # ---------------------------------------------------------------------------
   - path: "/.git/config"
@@ -191,3 +191,137 @@ paths:
     service: "openai-proxy"
   - path: "/api/v1/llm/generate"
     service: "llm-proxy"
+
+  # ---------------------------------------------------------------------------
+  # CMS / Admin panels
+  # ---------------------------------------------------------------------------
+  - path: "/wp-login.php"
+    service: "wordpress"
+  - path: "/wp-admin"
+    service: "wordpress"
+  - path: "/xmlrpc.php"
+    service: "wordpress"
+  - path: "/wp-json/"
+    service: "wordpress"
+  - path: "/phpmyadmin"
+    service: "phpmyadmin"
+  - path: "/phpMyAdmin"
+    service: "phpmyadmin"
+  - path: "/pma"
+    service: "phpmyadmin"
+  - path: "/adminer.php"
+    service: "adminer"
+
+  # ---------------------------------------------------------------------------
+  # CI / Build servers
+  # ---------------------------------------------------------------------------
+  - path: "/jenkins"
+    service: "jenkins"
+  - path: "/jenkins/login"
+    service: "jenkins"
+  - path: "/script"
+    service: "jenkins-groovy"
+
+  # ---------------------------------------------------------------------------
+  # Server / runtime monitoring
+  # ---------------------------------------------------------------------------
+  - path: "/server-status"
+    service: "apache-status"
+  - path: "/nginx_status"
+    service: "nginx-status"
+  - path: "/debug/pprof/"
+    service: "go-pprof"
+  - path: "/debug/vars"
+    service: "go-expvar"
+  - path: "/actuator/health"
+    service: "spring-actuator"
+  - path: "/actuator/prometheus"
+    service: "spring-actuator"
+
+  # ---------------------------------------------------------------------------
+  # PHP framework debug
+  # ---------------------------------------------------------------------------
+  - path: "/_ignition/execute-solution"
+    service: "laravel-ignition"
+  - path: "/_ignition/health-check"
+    service: "laravel-ignition"
+  - path: "/storage/logs/laravel.log"
+    service: "laravel-logs"
+
+  # ---------------------------------------------------------------------------
+  # Ruby / Rails
+  # ---------------------------------------------------------------------------
+  - path: "/rails/info/routes"
+    service: "rails-info"
+  - path: "/sidekiq"
+    service: "sidekiq"
+
+  # ---------------------------------------------------------------------------
+  # Monitoring dashboards
+  # ---------------------------------------------------------------------------
+  - path: "/grafana"
+    service: "grafana"
+  - path: "/grafana/login"
+    service: "grafana"
+  - path: "/prometheus/graph"
+    service: "prometheus"
+  - path: "/kibana/app/discover"
+    service: "kibana"
+
+  # ---------------------------------------------------------------------------
+  # Atlassian / Collaboration
+  # ---------------------------------------------------------------------------
+  - path: "/confluence"
+    service: "confluence"
+  - path: "/login.action"
+    service: "confluence"
+  - path: "/jira"
+    service: "jira"
+  - path: "/secure/Dashboard.jspa"
+    service: "jira"
+
+  # ---------------------------------------------------------------------------
+  # Zimbra mail
+  # ---------------------------------------------------------------------------
+  - path: "/zimbra"
+    service: "zimbra"
+  - path: "/zimbra/"
+    service: "zimbra"
+
+  # ---------------------------------------------------------------------------
+  # Kubernetes dashboard
+  # ---------------------------------------------------------------------------
+  - path: "/kubernetes-dashboard"
+    service: "kubernetes"
+  - path: "/dashboard"
+    service: "kubernetes"
+
+  # ---------------------------------------------------------------------------
+  # Elasticsearch / search
+  # ---------------------------------------------------------------------------
+  - path: "/_search"
+    service: "elasticsearch"
+  - path: "/_cluster/health"
+    service: "elasticsearch"
+  - path: "/_nodes"
+    service: "elasticsearch"
+
+  # ---------------------------------------------------------------------------
+  # Secret / config dumps
+  # ---------------------------------------------------------------------------
+  - path: "/service-account.json"
+    service: "gcp-credentials"
+  - path: "/credentials.json"
+    service: "credentials"
+  - path: "/secrets.json"
+    service: "credentials"
+  - path: "/config/secrets.yml"
+    service: "secrets"
+  - path: "/backup.zip"
+    service: "backup"
+  - path: "/backup.tar.gz"
+    service: "backup"
+  - path: "/db.sql"
+    service: "db-dump"
+  - path: "/dump.sql"
+    service: "db-dump"

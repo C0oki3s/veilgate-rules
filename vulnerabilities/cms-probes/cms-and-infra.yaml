@@ -1,6 +1,6 @@
-# CMS honeypot paths — high-confidence scanner indicators.
+# CMS probe paths — high-confidence scanner indicators.
 # A real user accessing any of these paths almost never happens organically.
-honeypot_paths:
+probe_paths:
   # WordPress
   - /wp-admin/install.php
   - /wp-admin/setup-config.php
@@ -36,7 +36,7 @@ honeypot_paths:
   - /job/
   - /script
 
-fake_git_paths:
+vcs_paths:
   - "/.git/COMMIT_EDITMSG"
   - "/.git/FETCH_HEAD"
   - "/.git/packed-refs"
@@ -44,7 +44,7 @@ fake_git_paths:
   - "/.git/refs/heads/master"
   - "/.git/logs/HEAD"
 
-fake_env_paths:
+env_paths:
   - "/.env.local"
   - "/.env.development"
   - "/.env.staging"

@@ -14,6 +14,7 @@ injector:
     text:
       log_noise: 100
   category_order:
+    - prompt_injection
     - rabbit_hole
     - cost_bomb
 

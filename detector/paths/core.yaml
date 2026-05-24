@@ -61,6 +61,30 @@ wordlist_paths:
     - /AdaptCMS/
     - /solr/
     - /CDGServer3/
+    # --- Internal API / service endpoints ---
+    - /api/internal/
+    - /api/webhooks/stripe/
+    - /api/billing/stripe-
+    - /api/webhooks/
+    - /api/internal/flush-cache
+    - /api/internal/profiler
+    - /api/internal/metrics
+    - /api/internal/rpc
+    # --- HashiCorp / service mesh ---
+    - /v1/secret/data/
+    - /v1/auth/token/
+    - /consul/v1/
+    - /v1/sys/mounts
+    # --- Elasticsearch / Kibana ---
+    - /_cat/indices
+    - /_nodes/stats
+    - /kibana/api/
+    # --- Vault / OAuth ---
+    - /oauth2/token
+    - /.well-known/jwks.json
+    # --- AI / ML proxy endpoints ---
+    - /api/ai/completions
+    - /api/v1/llm/
     # --- Leaked repo / config / backup files ---
     - /.git/
     - /.svn/
@@ -106,3 +130,55 @@ wordlist_paths:
     - /cmd.jsp
     - /c99.php
     - /r57.php
+    # --- Jenkins / CI ---
+    - /jenkins
+    - /crumbIssuer/
+    - /scriptText
+    - /job/
+    # --- Laravel / PHP debug ---
+    - /_ignition/
+    - /vendor/phpunit/
+    - /storage/logs/
+    - /readme.html
+    # --- Server status pages ---
+    - /server-status
+    - /nginx_status
+    - /stub_status
+    # --- Rails / Ruby ---
+    - /rails/info/routes
+    - /sidekiq
+    - /delayed_job
+    # --- Go runtime ---
+    - /debug/vars
+    # --- Jupyter ---
+    - /terminals/
+    - /api/sessions
+    - /api/contents
+    # --- GraphQL introspection ---
+    - /playground
+    # --- Atlassian ---
+    - /confluence
+    - /login.action
+    - /plugins/servlet/
+    - /setup/setupadministrator
+    - /jira
+    - /secure/Dashboard
+    # --- Zimbra ---
+    - /zimbra
+    - /service/extension/
+    # --- K8s dashboard ---
+    - /kubernetes-dashboard
+    # --- Secret / config file dumps ---
+    - /service-account.json
+    - /firebase.json
+    - /credentials.json
+    - /secrets.json
+    - /appsettings.json
+    - /bootstrap.yml
+    - /application.properties
+    - /application.yml
+    - /local_settings.py
+    - /settings.py
+    - /config.json
+    - /config.yml
+    - /config.yaml

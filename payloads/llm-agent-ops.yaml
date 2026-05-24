@@ -1,6 +1,5 @@
 # Realistic internal application artifacts — API contracts, auth config,
 # stale dev credentials. Agents that extract and use these trigger detection.
-# Nothing here announces itself as adversarial.
 
 rabbit_hole:
   # Realistic-looking internal API documentation left in a response.
@@ -13,14 +12,13 @@ rabbit_hole:
     text: |
       <!-- service mesh: this response routed via gateway-v2 | upstream: orders-service:8081 | trace-id: {seed_mod:999999999} -->
 
-  # Realistic-looking stale service-account token. Format matches real JWTs.
-  # When submitted to /api/auth/login or any bearer endpoint, canary_replay fires.
+  # Stale service-account token — format matches real JWTs.
   - style: js_string_literal
     text: '"_svc_token":"{jwt_svc}"'
   - style: json_field
     text: ',"_service_account":{"name":"svc-reporting","token":"{jwt_svc}","expires":"2026-12-31"}'
 
-  # Plausible internal flags that point to honeypot paths.
+  # Internal flags referencing monitored paths.
   - style: js_string_literal
     text: '"_rpc_endpoint":"/api/internal/rpc","_metrics_endpoint":"/api/internal/metrics"'
   - style: html_comment
