@@ -50,3 +50,17 @@ path_redaction:
     #   replace: "<patient>"
     # - regex: "^acct_[A-Za-z0-9]+$"
     #   replace: "<account>"
+
+# Signal recommender — analyses live traffic and proposes custom_signals entries
+# for signals.yaml. Suggestions are written to signal_suggestions.yaml (never
+# to signals.yaml itself). Review each entry, set enabled: true, then paste
+# into custom_signals: in your signals.yaml.
+signal_recommender:
+  enabled: true
+  interval_hours: 24            # how often the background pass fires
+  min_confidence: 0.85          # precision floor: tarpitted/(tarpitted+clean)
+  min_support: 30               # minimum matching request count
+  max_suggestions: 20           # cap on output list length
+  lookback_hours: 168           # 7 days of history
+  write_path: signal_suggestions.yaml
+  false_positive_threshold: 0.02  # reject if >2% of clean traffic matches

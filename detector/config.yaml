@@ -49,3 +49,49 @@ injection_markers:
 
 oob_interaction:
   points: 60
+
+# Session-level behavioral signal configuration.
+# schema_paths and auth_path_patterns are merged (not replaced) when community
+# YAML files in rules/detector/ add their own entries. More specific patterns
+# must appear before more general ones — matching is first-match-wins.
+behavioral_signals:
+  schema_paths:
+    - openapi
+    - swagger
+    - api-docs
+    - api/docs
+    - schema.json
+    - graphql/schema
+    - graphiql
+
+  auth_path_patterns:
+    # Most-specific patterns first.
+    - pattern: /oauth/token
+      label: oauth_token
+    - pattern: /oauth2/token
+      label: oauth_token
+    - pattern: /auth/token
+      label: auth_token
+    - pattern: /api/token
+      label: auth_token
+    - pattern: /jwt/
+      label: jwt
+    - pattern: /sso/
+      label: sso
+    - pattern: /saml/
+      label: sso
+    - pattern: /login
+      label: login
+    - pattern: /signin
+      label: login
+    - pattern: /password
+      label: password
+    - pattern: /credentials
+      label: password
+    # /auth/ is intentionally last — it's the broadest pattern.
+    # Exclude /logout so auth flow teardown doesn't count as a probe.
+    - pattern: /auth/
+      label: auth_generic
+      exclude: /logout
+    - pattern: /api/session
+      label: api_session

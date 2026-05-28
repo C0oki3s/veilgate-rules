@@ -1,0 +1,404 @@
+# VeilGate signal registry — signals.yaml
+#
+# Controls which detection signals are active and how they are scored.
+#
+# Built-in signals
+# ----------------
+# Each entry under `signals:` may set:
+#
+#   enabled: true|false   — false silences the signal completely.
+#                           Signals absent from this file default to enabled.
+#   points:  N            — overrides the default weight from config.yaml.
+#                           0 (or omitted) keeps the config.yaml default.
+#   description:          — human-readable documentation (not used by the engine).
+#
+# Custom signals
+# --------------
+# The `custom_signals:` list lets you define pattern-based detection rules
+# without touching Go code. A custom signal fires when ALL listed conditions
+# match (AND logic). Add as many entries as you need.
+#
+# Condition types:
+#   path_prefix    value: /prefix/         request path starts with value
+#   path_contains  value: keyword          request path contains value (substring)
+#   path_suffix    value: .php             request path ends with value
+#   path_regex     value: ^/v[0-9]+/admin  request path matches Go regex
+#   ua_contains    value: curl             User-Agent contains value
+#   header_present name: X-Debug-Token     named header is present
+#   header_value   name: Content-Type      named header contains value
+#                  value: multipart
+#   query_contains value: debug=1          raw query string contains value
+#   method         value: DELETE           HTTP method equals value (case-insensitive)
+#
+# All string comparisons are case-insensitive except path_regex (which uses
+# Go regexp semantics; add (?i) to your pattern for case-insensitive matching).
+
+# ── Built-in signal registry ─────────────────────────────────────────────────
+
+signals:
+
+  # ── Request header analysis ─────────────────────────────────────────────────
+
+  empty_ua:
+    enabled: true
+    description: >-
+      No User-Agent header. HTTP libraries often omit it; real browsers
+      always send it. Low-confidence alone but reinforces other signals.
+
+  suspicious_ua:
+    enabled: true
+    description: >-
+      User-Agent matches a known tool, scanner, or library substring
+      (sqlmap, nuclei, python-requests, go-http-client, curl, …).
+
+  sparse_headers:
+    enabled: true
+    description: >-
+      Request is missing browser-typical headers (Accept-Language,
+      Sec-Fetch-Site/Mode/Dest, Sec-Ch-Ua). HTTP clients send only the
+      minimum required headers; real browsers send the full set.
+
+  sec_fetch_absent:
+    enabled: true
+    description: >-
+      UA looks like a real browser but all three Sec-Fetch-* headers are
+      absent. Browsers since 2020 always include the triple on top-level
+      navigations and main-document fetches.
+
+  sec_fetch_partial:
+    enabled: true
+    description: >-
+      UA looks like a real browser but the Sec-Fetch-* triple is incomplete
+      (only one or two of Site/Mode/Dest present).
+
+  ae_browser_empty:
+    enabled: true
+    description: >-
+      Browser-shaped UA but Accept-Encoding is absent. Every real browser
+      advertises at least gzip+deflate; library defaults vary.
+
+  ae_browser_no_br:
+    enabled: true
+    description: >-
+      Browser-shaped UA but Accept-Encoding does not include brotli (br).
+      All Chromium, Firefox, and Safari versions since ~2017 advertise br.
+
+  h3_mismatch:
+    enabled: true
+    description: >-
+      Browser-shaped UA but the client never upgraded to HTTP/3 despite
+      repeated Alt-Svc hints from the server. Set by the proxy layer.
+
+  # ── Timing ───────────────────────────────────────────────────────────────────
+
+  regular_timing:
+    enabled: true
+    description: >-
+      Request inter-arrival gaps are suspiciously uniform (mean 1–10 s,
+      coefficient of variation below the configured threshold). LLM agents
+      and test harnesses produce this pattern; human navigation does not.
+
+  # ── Toolchain / pentest pipeline ─────────────────────────────────────────────
+
+  toolchain_full:
+    enabled: true
+    description: >-
+      Client hit all three stages of a classic pentest pipeline: recon
+      paths (robots.txt, sitemap …), probe paths (/admin, /login …), and
+      an exploit marker (SQL/XSS/RCE payload) within the rolling window.
+
+  toolchain_partial:
+    enabled: true
+    description: >-
+      Client hit exactly two pentest stages (recon+probe or probe+exploit)
+      without completing the full three-stage sequence.
+
+  toolchain_hmm:
+    enabled: true
+    description: >-
+      The ordered stage sequence recon → probe → exploit was observed across
+      the event history. Stronger than the set-based signals above because
+      the order matters and is hard to produce accidentally.
+
+  toolchain_hmm_partial:
+    enabled: true
+    description: >-
+      Ordered two-stage subsequence (recon→probe or probe→exploit) observed.
+      Weaker than the full HMM signal but still informative as a leading
+      indicator before the third stage fires.
+
+  # ── Path and payload analysis ─────────────────────────────────────────────────
+
+  path_bruteforce:
+    enabled: true
+    description: >-
+      Client hit many distinct paths inside the tracker window — the
+      fingerprint of dirsearch/ffuf/feroxbuster/nikto wordlist bruteforcers
+      even when they rotate User-Agent pools.
+
+  wordlist_path:
+    enabled: true
+    description: >-
+      Request path matches a known scanner wordlist entry (SecLists,
+      dirsearch default.yml, nikto db_tests.db). Catches bruteforcers
+      even when the UA is spoofed or rotated.
+
+  injection_marker:
+    enabled: true
+    description: >-
+      Attack payload marker found in path, query, headers, or body:
+      SQL injection, XSS, SSRF, command injection, path traversal,
+      Log4Shell (jndi:ldap://…), template injection, and similar.
+      Active exploit payloads should route straight to tarpit.
+
+  oob_interaction:
+    enabled: true
+    description: >-
+      Request references an out-of-band callback host: Burp Collaborator
+      (*.burpcollaborator.net), interactsh (*.oast.me, *.oast.fun),
+      webhook.site, canarytokens.org, etc. Virtually never in legit traffic.
+
+  encoding_chain:
+    enabled: true
+    description: >-
+      Request uses double (%25XX) or triple (%2525) URL-encoding — a classic
+      WAF-bypass technique. A literal percent sign (%25 alone, not followed
+      by two hex digits) does not trigger this signal.
+
+  # ── IP and rotation signals ───────────────────────────────────────────────────
+
+  ip_reputation:
+    enabled: true
+    description: >-
+      Client IP falls within a known-bad CIDR (cloud egress, Tor exit node,
+      public VPN, datacenter range). Not conclusive alone but a strong prior
+      that automation or anonymisation is involved.
+
+  ip_rotation_fleet:
+    enabled: true
+    description: >-
+      Multiple distinct client IPs share the same behavioral fingerprint
+      (UA family + JA4 prefix + header bitmap + HTTP method) inside the
+      rolling window. Canonical proxy/VPN pool rotation signature.
+
+  ua_rotation:
+    enabled: true
+    description: >-
+      One client IP sent requests under many distinct User-Agent strings
+      within the tracker window. Real browsers never change UA mid-session;
+      dirsearch/ffuf with a UA pool does.
+
+  # ── TLS and HTTP/2 fingerprinting ─────────────────────────────────────────────
+
+  tls_agent:
+    enabled: true
+    description: >-
+      TLS ClientHello fingerprint (JA4/JA3) matches a known HTTP library or
+      security scanner (python-httpx, nuclei, sqlmap, etc.). High confidence
+      when match confidence >= 80.
+
+  tls_bot:
+    enabled: true
+    description: >-
+      TLS fingerprint matches a known bot (search-engine crawler, monitoring
+      probe, etc.). Lower risk than an agent/scanner but worth logging.
+
+  tls_non_browser:
+    enabled: true
+    description: >-
+      TLS fingerprint does not match any known browser. Catch-all for clients
+      whose cipher/extension list looks library-shaped without a named match.
+
+  h2_agent:
+    enabled: true
+    description: >-
+      HTTP/2 SETTINGS frame fingerprint matches a known agent library.
+      Complements TLS fingerprinting; together they are very hard to spoof.
+
+  h2_bot:
+    enabled: true
+    description: >-
+      HTTP/2 SETTINGS fingerprint matches a known bot.
+
+  h2_non_browser:
+    enabled: true
+    description: >-
+      HTTP/2 SETTINGS fingerprint looks library-shaped (no browser match).
+
+  # ── Session / behavioral signals ─────────────────────────────────────────────
+
+  graph_flat:
+    enabled: true
+    description: >-
+      Client made many requests but zero carried a Sec-Fetch-Dest subresource
+      value. Real browsers produce a tree-shaped pattern (document then many
+      subresources); agents produce a flat list of independent document fetches.
+
+  graph_doc_heavy:
+    enabled: true
+    description: >-
+      Document fetches outnumber subresource fetches by 4:1 or more.
+      Crawler topology — automated page-to-page navigation that does not
+      follow links to embedded resources.
+
+  cookie_stateless:
+    enabled: true
+    description: >-
+      Client made 10+ requests without ever sending a Cookie header. Real
+      browsers accumulate cookies from Set-Cookie responses; stateless HTTP
+      clients and most libraries do not maintain a cookie jar.
+
+  fanout_high:
+    enabled: true
+    description: >-
+      Client accessed 60+ distinct paths in the last 60 seconds. Finer-
+      grained than path_bruteforce; fires before the wordlist threshold
+      saturates. Effective against slow-rate scanners.
+
+  fanout_extreme:
+    enabled: true
+    description: >-
+      Client accessed 200+ distinct paths in the last 60 seconds.
+      Almost exclusively scanners and fuzz harnesses at this rate.
+
+  recovery_pivot:
+    enabled: true
+    description: >-
+      The immediately-preceding response was 4xx and the next request changed
+      both path and method — shape-change retry. Real users retry with
+      credentials; LLM agents often pivot to a different endpoint after
+      receiving an error.
+
+  bundle_mining:
+    enabled: true
+    description: >-
+      Client fetched a JavaScript bundle asset then issued several /api/*
+      requests within 60 seconds with no HTML document navigation in between.
+      The canonical "agent downloaded SPA, extracted routes, began probing"
+      pattern observed in automated pentesting runs.
+
+  canary_replay:
+    enabled: true
+    description: >-
+      A token previously served inside a tarpit response was submitted in a
+      subsequent request. Near-perfect proof of automated processing: a real
+      user would never see the canary value, let alone reuse it as a credential.
+
+  # ── New session-level behavioral signals ────────────────────────────────────
+
+  header_mutation:
+    enabled: true
+    description: >-
+      The stable-header presence bitmap (Accept-Language, Accept-Encoding,
+      Sec-Ch-Ua, Sec-Ch-Ua-Mobile, Sec-Ch-Ua-Platform) changed multiple times
+      during the session. Volatile headers (Referer, Cookie, Cache-Control,
+      Sec-Fetch-*) are excluded to avoid false positives on normal navigation.
+
+  schema_first:
+    enabled: true
+    description: >-
+      A non-browser client's first three requests targeted an API schema
+      endpoint (openapi, swagger, graphql, …). The browser-UA gate prevents
+      false positives from Swagger UI, Redoc, and developer tools that open
+      the schema as their very first request.
+
+  cache_miss_anomaly:
+    enabled: true
+    description: >-
+      The same path was fetched 5+ times in a 3-minute burst without any
+      request carrying conditional headers (If-None-Match or If-Modified-Since).
+      SPA libraries (React Query, SWR, Apollo) cache aggressively; polling
+      agents repeatedly re-fetch identical resources without caching.
+
+  no_cookie_return:
+    enabled: true
+    description: >-
+      The tarpit served a Set-Cookie header but the client never returned
+      any Cookie in subsequent requests. Stateless HTTP clients and agents
+      typically do not maintain a cookie jar. Suppressed for cross-origin
+      requests (CORS/SameSite guard).
+
+  auth_probe_sequence:
+    enabled: true
+    description: >-
+      Client probed 4+ distinct authentication endpoint categories (/login,
+      /oauth/token, /sso, /jwt, /password, /api/session, …) within 5 minutes
+      and 10+ total requests. Normal OAuth flows touch 2-3 auth paths; systematic
+      auth scanning covers many categories across different auth providers.
+
+  # ── API Blueprint ────────────────────────────────────────────────────────────
+
+  api_blueprint_miss:
+    enabled: true
+    description: >-
+      Request targeted the operator's documented API namespace (e.g. /api, /v1)
+      but the exact path was not found in the provided blueprint
+      (api_blueprint.yaml / openapi.yaml). Common indicator of automated
+      endpoint enumeration and undocumented-route probing. Disabled automatically
+      when no blueprint file is present in the rules directory.
+
+  # ── Machine learning ───────────────────────────────────────────────────────────
+
+  ml_agent_score:
+    enabled: true
+    description: >-
+      Combined Isolation Forest (anomaly on numeric session features) and Naive
+      Bayes (categorical per-request features) score. Trained online from
+      observe-mode traffic and adapts to the application's user population.
+      Only fires above the min_confidence_to_fire threshold set in ml.yaml.
+
+  # ── Honeypot ──────────────────────────────────────────────────────────────────
+
+  honeypot_hit:
+    enabled: true
+    description: >-
+      Client requested a path listed as a honeypot in veilgate.yaml probe_paths.
+      First hit scores 50 pts; repeated hits 80 pts. The strongest single-request
+      signal — no legitimate user or crawler should ever visit these paths.
+
+# ── Custom signals ────────────────────────────────────────────────────────────
+#
+# Define your own detection rules below. Each fires when ALL listed conditions
+# match. Use this to catch application-specific attack patterns or enforce
+# policies specific to your deployment without recompiling VeilGate.
+#
+# Condition types recap:
+#   path_prefix / path_contains / path_suffix / path_regex
+#   ua_contains
+#   header_present / header_value  (use `name:` for the header name)
+#   query_contains
+#   method
+#
+# Example — flag non-GET requests to a read-only public API:
+#
+#   - name: api_write_attempt
+#     description: "Non-GET to read-only public API"
+#     enabled: true
+#     points: 15
+#     conditions:
+#       - type: path_prefix
+#         value: /api/v1/public/
+#       - type: method
+#         value: POST
+#
+# Example — watch for debug header probing:
+#
+#   - name: debug_header_probe
+#     description: "Request with internal debug header"
+#     enabled: true
+#     points: 20
+#     conditions:
+#       - type: header_present
+#         name: X-Debug-Token
+#
+# Example — detect PHP extension scanning on a Node.js service:
+#
+#   - name: php_ext_probe
+#     description: "PHP extension requested on a non-PHP service"
+#     enabled: true
+#     points: 10
+#     conditions:
+#       - type: path_suffix
+#         value: .php
+
+custom_signals: []
